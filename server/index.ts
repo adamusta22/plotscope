@@ -33,7 +33,7 @@ function json(res: http.ServerResponse, code: number, body: unknown) {
 }
 
 function describeError(err: unknown): string {
-  if (err instanceof Anthropic.AuthenticationError || (err instanceof Anthropic.AnthropicError && !(err instanceof Anthropic.APIError) && /authentication method/.test(err.message))) return 'The AI assistant is not configured: set ANTHROPIC_API_KEY on the server.';
+  if (err instanceof Anthropic.AuthenticationError || (!(err instanceof Anthropic.APIError) && /authentication method/.test(String((err as Error)?.message)))) return 'The AI assistant is not configured: set ANTHROPIC_API_KEY on the server.';
   if (err instanceof Anthropic.RateLimitError) return 'The AI service is busy (rate limited). Try again in a moment.';
   if (err instanceof Anthropic.BadRequestError) return `The AI request was rejected: ${err.message}`;
   if (err instanceof Anthropic.APIConnectionError) return 'Could not reach the AI service.';
