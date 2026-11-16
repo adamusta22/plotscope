@@ -2,6 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import type { AgentAction, AgentContext, AgentEvent } from '../lib/agentTypes';
 import { Icon } from './Icon';
 
+/** Raw API conversation (with tool calls and results), kept across panel switches. */
+let agentState: unknown[] = [];
+const MAX_STEPS = 25;
+
 export interface ChatMsg {
   role: 'user' | 'assistant';
   content: string;
@@ -52,42 +56,56 @@ export function AgentPanel({ chat, setChat, context, onAction, hasSelection, see
     text = text.trim();
     if (!text || inFlight.current) return;
     inFlight.current = true;
-    const history = [...chat.filter((m) => !m.error && m.content), { role: 'user' as const, content: text }].map(({ role, content }) => ({ role, content }));
     setChat((c) => [...c, { role: 'user', content: text }, { role: 'assistant', content: '', tools: [], pending: true }]);
     setInput('');
     setBusy(true);
     ac.current = new AbortController();
+    const notRunning = 'The Plotscope server is not reachable. Locally, start it with `npm run dev`.';
     try {
-      const r = await fetch('/api/agent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: history, context: context() }),
-        signal: ac.current.signal,
-      });
-      if (!r.ok || !r.body) throw new Error(r.status === 429 ? 'You have hit the hourly AI limit. Try again later.' : r.status === 404 || r.status === 502 || r.status === 504 ? 'The Plotscope API server is not running. Start it with `npm run dev`.' : `Request failed (${r.status})`);
-      const reader = r.body.getReader();
-      const dec = new TextDecoder();
-      let buf = '';
-      for (;;) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buf += dec.decode(value, { stream: true });
-        let i;
-        while ((i = buf.indexOf('\n\n')) >= 0) {
-          const line = buf.slice(0, i).trim();
-          buf = buf.slice(i + 2);
-          if (!line.startsWith('data:')) continue;
-          const ev = JSON.parse(line.slice(5)) as AgentEvent;
-          if (ev.type === 'text') patchLast((m) => ({ ...m, content: m.content + ev.text }));
-          else if (ev.type === 'thinking') patchLast((m) => ({ ...m, thinking: (m.thinking || '') + ev.text }));
-          else if (ev.type === 'tool') patchLast((m) => ({ ...m, tools: [...(m.tools || []), { id: ev.id, label: ev.label, done: false }] }));
-          else if (ev.type === 'tool_done') patchLast((m) => ({ ...m, tools: (m.tools || []).map((t) => (t.id === ev.id ? { ...t, done: true } : t)) }));
-          else if (ev.type === 'action') onAction(ev.action);
-          else if (ev.type === 'error') patchLast((m) => ({ ...m, error: ev.message }));
+      // The server runs one model step per request (keeps each request short
+      // enough for serverless hosts); we loop until the answer is complete.
+      let question: string | undefined = text;
+      for (let step = 0; step < MAX_STEPS; step++) {
+        const payload = JSON.stringify({ state: agentState, question, context: context() });
+        if (payload.length > 4_500_000) throw new Error('This conversation has got too long. Click **New conversation** to carry on.');
+        const r = await fetch('/api/agent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, signal: ac.current.signal });
+        if (!r.ok || !r.body) {
+          const msg = await r.json().then((j) => j.error).catch(() => null);
+          throw new Error(r.status === 429 ? 'You have hit the hourly AI limit. Try again later.' : r.status === 404 || r.status === 502 || r.status === 504 ? notRunning : msg || `Request failed (${r.status})`);
         }
+        question = undefined;
+        let finished = true;
+        let gotStep = false;
+        const reader = r.body.getReader();
+        const dec = new TextDecoder();
+        let buf = '';
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+          let i;
+          while ((i = buf.indexOf('\n\n')) >= 0) {
+            const line = buf.slice(0, i).trim();
+            buf = buf.slice(i + 2);
+            if (!line.startsWith('data:')) continue;
+            const ev = JSON.parse(line.slice(5)) as AgentEvent;
+            if (ev.type === 'text') patchLast((m) => ({ ...m, content: m.content + ev.text }));
+            else if (ev.type === 'thinking') patchLast((m) => ({ ...m, thinking: (m.thinking || '') + ev.text }));
+            else if (ev.type === 'tool') patchLast((m) => ({ ...m, tools: [...(m.tools || []).filter((t) => t.id !== ev.id), { id: ev.id, label: ev.label, done: false }] }));
+            else if (ev.type === 'tool_done') patchLast((m) => ({ ...m, tools: (m.tools || []).map((t) => (t.id === ev.id ? { ...t, done: true } : t)) }));
+            else if (ev.type === 'action') onAction(ev.action);
+            else if (ev.type === 'step') { agentState = ev.messages; finished = ev.done; gotStep = true; }
+            else if (ev.type === 'error') { patchLast((m) => ({ ...m, error: ev.message })); finished = true; gotStep = true; }
+          }
+        }
+        if (!gotStep) throw new Error('The connection dropped before the step finished (the host may have timed out). Try again or ask a narrower question.');
+        if (finished) break;
+        if (step === MAX_STEPS - 1) patchLast((m) => ({ ...m, error: 'Stopped after many steps. Ask a follow-up to continue.' }));
+        // keep separate steps' text readable
+        patchLast((m) => (m.content && !m.content.endsWith('\n') ? { ...m, content: m.content + '\n\n' } : m));
       }
     } catch (e) {
-      if ((e as Error).name !== 'AbortError') patchLast((m) => ({ ...m, error: (e as Error).message === 'Failed to fetch' ? 'The Plotscope API server is not running. Start it with `npm run dev`.' : (e as Error).message }));
+      if ((e as Error).name !== 'AbortError') patchLast((m) => ({ ...m, error: (e as Error).message === 'Failed to fetch' ? notRunning : (e as Error).message }));
     } finally {
       patchLast((m) => ({ ...m, pending: false, tools: (m.tools || []).map((t) => ({ ...t, done: true })) }));
       setBusy(false);
@@ -161,7 +179,7 @@ export function AgentPanel({ chat, setChat, context, onAction, hasSelection, see
           <button className="btn primary" disabled={!input.trim()} aria-label="Send"><Icon name="send" size={16} /></button>
         )}
       </form>
-      {chat.length > 0 && !busy && <button className="link small clear-chat" onClick={() => setChat(() => [])}>New conversation</button>}
+      {chat.length > 0 && !busy && <button className="link small clear-chat" onClick={() => { agentState = []; setChat(() => []); }}>New conversation</button>}
     </div>
   );
 }

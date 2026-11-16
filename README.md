@@ -52,6 +52,33 @@ Pipeline data is currently saved in the browser (localStorage). The next step fo
 
 - [How Searchland works: a function-by-function assessment and roadmap](docs/SEARCHLAND-ASSESSMENT.md)
 
+## Deploy (Netlify)
+
+The repo is set up for Netlify (`netlify.toml`):
+- **Website:** built with `npm run build` and served from `dist/`.
+- **API and AI assistant:** a streaming Netlify Function (`netlify/functions/api.mts`) on `/api/*`.
+- **Password:** an optional site-wide password, checked by an Edge Function (`netlify/edge-functions/password.ts`).
+
+1. In Netlify, choose **Add new site → Import an existing project → GitHub**, then pick this repo. The build settings are read from `netlify.toml`.
+2. Under **Site configuration → Environment variables**, add:
+
+| Variable | Purpose |
+|---|---|
+| `ANTHROPIC_API_KEY` | Turns on the AI assistant (required for AI) |
+| `APP_PASSWORD` | Password-protects the whole site (any username). Leave unset for a public site |
+| `AGENT_REQUESTS_PER_HOUR` | Best-effort cap on AI questions per visitor per hour (default 30) |
+| `PLOTSCOPE_EFFORT` | AI reasoning depth: `low`, `medium` (default) or `high`. Higher is slower and costs more |
+
+3. Redeploy so the new variables take effect.
+
+Netlify Functions are cut off after about 60 seconds, so the assistant works in steps: each request runs one AI step, and the browser keeps calling until the answer is complete. Set a monthly spend limit in the Anthropic Console as well. The per-visitor cap is only approximate on serverless hosting.
+
+The included `Dockerfile` and `npm start` still work for any other host.
+
+## Docs
+
+- [How Searchland works: a function-by-function assessment and roadmap](docs/SEARCHLAND-ASSESSMENT.md)
+
 ## Deploy
 
 Plotscope runs as a single Node service: `npm run build` then `npm start`. The server delivers the web app and the API on `PORT`.

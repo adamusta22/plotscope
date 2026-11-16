@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { betaZodTool } from '@anthropic-ai/sdk/helpers/beta/zod';
+import { runRunnableTool } from '@anthropic-ai/sdk/lib/tools/BetaRunnableTool';
 import { z } from 'zod';
 import * as turf from '@turf/turf';
 import type { Feature, Polygon } from 'geojson';
@@ -8,7 +9,7 @@ import { CONSTRAINT_IDS, DATASET_BY_ID, DATASETS } from '../src/lib/datasets';
 import { NPPF, POLICY_TOPICS, TOPIC_BY_ID, topicText } from '../src/lib/policy';
 import { localPlanFor } from '../src/lib/localplan';
 import { runAppraisal, DEFAULT_APPRAISAL } from '../src/lib/appraisal';
-import type { AgentAction, AgentContext, AgentEvent, ChatTurn } from '../src/lib/agentTypes';
+import type { AgentAction, AgentContext, AgentEvent } from '../src/lib/agentTypes';
 
 const MODEL = process.env.PLOTSCOPE_MODEL || 'claude-opus-5-5';
 const client = new Anthropic();
@@ -240,62 +241,99 @@ const TOOL_LABELS: Record<string, string> = {
   web_fetch: 'Reading a web page',
 };
 
-export async function runAgent(history: ChatTurn[], ctx: AgentContext, emit: Emit, signal: AbortSignal) {
-  const turns = history.slice(-20);
-  const messages: Anthropic.Beta.BetaMessageParam[] = turns.map((t, i) => ({
-    role: t.role,
-    content: i === turns.length - 1 && t.role === 'user' ? `${contextBlock(ctx)}\n\n${t.content}` : t.content,
-  }));
+const EFFORT = (process.env.PLOTSCOPE_EFFORT || 'medium') as 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
+export interface StepInput {
+  /** Raw conversation state returned by the previous step (passed back unchanged). */
+  state: Anthropic.Beta.BetaMessageParam[];
+  /** A new question from the user; omit to continue the current turn. */
+  question?: string;
+  context: AgentContext;
+}
+
+export interface StepResult {
+  messages: Anthropic.Beta.BetaMessageParam[];
+  done: boolean;
+}
+
+/**
+ * Runs ONE model call (plus any of our own tools it asks for) and returns the
+ * updated conversation. The browser calls this repeatedly until `done`, so each
+ * request stays well inside serverless time limits (Netlify: 60 s).
+ */
+export async function runAgentStep(input: StepInput, emit: Emit, signal: AbortSignal): Promise<StepResult> {
+  const messages = [...input.state];
+  if (input.question) {
+    messages.push({ role: 'user', content: [{ type: 'text', text: `${contextBlock(input.context)}\n\n${input.question}` }] });
+  }
+  if (!messages.length || messages[messages.length - 1].role !== 'user') return { messages, done: true };
+
+  const runnable = buildTools(emit);
   const tools = [
-    ...buildTools(emit),
-    { type: 'web_search_20260209' as const, name: 'web_search' as const, max_uses: 8, user_location: { type: 'approximate' as const, country: 'GB' } },
-    { type: 'web_fetch_20260209' as const, name: 'web_fetch' as const, max_uses: 8 },
+    ...runnable,
+    { type: 'web_search_20260209' as const, name: 'web_search' as const, max_uses: 4, user_location: { type: 'approximate' as const, country: 'GB' } },
+    { type: 'web_fetch_20260209' as const, name: 'web_fetch' as const, max_uses: 3, max_content_tokens: 20000 },
   ];
 
-  let runner = client.beta.messages.toolRunner(
-    {
-      model: MODEL,
-      max_tokens: 64000,
-      system: SYSTEM,
-      thinking: { type: 'adaptive', display: 'summarized' },
-      output_config: { effort: 'high' },
-      cache_control: { type: 'ephemeral' },
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
-      tools,
-      messages,
-      stream: true,
-      max_iterations: 25,
-    },
-    { signal },
-  );
-
-  for (let attempt = 0; ; attempt++) {
+  let final: Anthropic.Beta.BetaMessage | undefined;
+  for (let attempt = 0; !final; attempt++) {
+    const stream = client.beta.messages.stream(
+      {
+        model: MODEL,
+        max_tokens: 32000,
+        system: SYSTEM,
+        thinking: { type: 'adaptive', display: 'summarized' },
+        output_config: { effort: EFFORT },
+        cache_control: { type: 'ephemeral' },
+        betas: ['server-side-fallback-2026-07-01'],
+        fallbacks: 'default',
+        tools,
+        messages,
+      },
+      { signal },
+    );
     try {
-      for await (const messageStream of runner) {
-        for await (const ev of messageStream) {
-          if (ev.type === 'content_block_start') {
-            const b = ev.content_block;
-            if (b.type === 'tool_use' || b.type === 'server_tool_use') emit({ type: 'tool', id: b.id, label: TOOL_LABELS[b.name] || b.name });
-          } else if (ev.type === 'content_block_delta') {
-            if (ev.delta.type === 'text_delta') emit({ type: 'text', text: ev.delta.text });
-            else if (ev.delta.type === 'thinking_delta') emit({ type: 'thinking', text: ev.delta.thinking });
-          }
+      for await (const ev of stream) {
+        if (ev.type === 'content_block_start') {
+          const b = ev.content_block;
+          if (b.type === 'tool_use' || b.type === 'server_tool_use') emit({ type: 'tool', id: b.id, label: TOOL_LABELS[b.name] || b.name });
+        } else if (ev.type === 'content_block_delta') {
+          if (ev.delta.type === 'text_delta') emit({ type: 'text', text: ev.delta.text });
+          else if (ev.delta.type === 'thinking_delta') emit({ type: 'thinking', text: ev.delta.thinking });
         }
-        const msg = await messageStream.finalMessage();
-        attempt = 0;
-        for (const b of msg.content) if (b.type === 'tool_use' || b.type === 'server_tool_use') emit({ type: 'tool_done', id: b.id, ok: true });
-        if (msg.stop_reason === 'refusal') {
-          emit({ type: 'text', text: '\n\n_I can’t help with that request._' });
-          break;
-        }
-        if (msg.stop_reason === 'max_tokens' && msg.content.some((b) => b.type === 'tool_use')) throw new Error('The response was cut off mid-tool call. Try a narrower question.');
       }
-      break;
+      final = await stream.finalMessage();
     } catch (err) {
-      if (err instanceof Anthropic.APIError || signal.aborted || attempt >= 2 || (err as Error).message?.startsWith('The response was cut off')) throw err;
-      runner = client.beta.messages.toolRunner({ ...runner.params }, { signal });
+      // Only an unparseable streamed tool input is retried; API errors and aborts are not.
+      if (err instanceof Anthropic.APIError || signal.aborted || attempt >= 1) throw err;
     }
   }
+
+  messages.push({ role: 'assistant', content: final.content as Anthropic.Beta.BetaContentBlockParam[] });
+  const serverToolIds = final.content.filter((b) => b.type === 'server_tool_use').map((b) => (b as { id: string }).id);
+  serverToolIds.forEach((id) => emit({ type: 'tool_done', id, ok: true }));
+
+  if (final.stop_reason === 'refusal') {
+    emit({ type: 'text', text: '\n\n_I can’t help with that request._' });
+    return { messages, done: true };
+  }
+  if (final.stop_reason === 'pause_turn') return { messages, done: false };
+
+  const uses = final.content.filter((b): b is Anthropic.Beta.BetaToolUseBlock => b.type === 'tool_use');
+  if (final.stop_reason === 'max_tokens' && uses.length) throw new Error('The response was cut off mid-tool call. Try a narrower question.');
+  if (final.stop_reason !== 'tool_use' || !uses.length) return { messages, done: true };
+
+  // Run all requested tools in parallel; return every result in ONE user message.
+  const results = await Promise.all(
+    uses.map(async (u) => {
+      const tool = runnable.find((t) => t.name === u.name);
+      const out = tool
+        ? await runRunnableTool(tool, u.input, { toolUse: u, toolUseBlock: u, signal })
+        : { content: `Unknown tool ${u.name}`, isError: true };
+      emit({ type: 'tool_done', id: u.id, ok: !out.isError });
+      return { type: 'tool_result' as const, tool_use_id: u.id, content: out.content, is_error: out.isError || undefined };
+    }),
+  );
+  messages.push({ role: 'user', content: results });
+  return { messages, done: false };
 }

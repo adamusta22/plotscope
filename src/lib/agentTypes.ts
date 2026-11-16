@@ -14,6 +14,7 @@ export type AgentEvent =
   | { type: 'tool'; id: string; label: string }
   | { type: 'tool_done'; id: string; ok: boolean }
   | { type: 'action'; action: AgentAction }
+  | { type: 'step'; messages: unknown[]; done: boolean }
   | { type: 'done' }
   | { type: 'error'; message: string };
 
