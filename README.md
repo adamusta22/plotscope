@@ -1,0 +1,46 @@
+# Plotscope
+
+A map-first land sourcing and site appraisal platform for UK property development.
+Rename it by changing `APP_NAME` in `src/App.tsx` and the `<title>` in `index.html`.
+
+## Run it
+
+```bash
+npm install
+npm run dev
+```
+
+Then open http://localhost:5173.
+
+## Features
+
+- **Map**: smooth fly-to animations, five base maps (streets, light, dark, satellite with labels, OSM), tilt and rotate, geolocate, scale bar. The map position is kept in the URL so you can share links.
+- **Search**: postcodes, outcodes, addresses and places, `lat,lng` coordinates and your own saved sites. Keyboard navigation works.
+- **22 constraint layers** from planning.data.gov.uk: Green Belt, flood zones, SSSI, ancient woodland, SAC/SPA/Ramsar, National Landscapes, National Parks, conservation areas, listed buildings, scheduled monuments, Article 4, TPOs, brownfield register, planning applications and LPA boundaries. Layers load for the area in view and highlight on hover.
+- **Instant site report**: click anywhere or draw a boundary to see every designation, the % of the site each one covers, a 0–100 constraint score, area/acres/perimeter, postcode, ward, LPA, constituency, LSOA and research links (EPC, title search, flood map, Street View).
+- **Sold prices**: HM Land Registry Price Paid data within 250 m–2 km, filtered by property type, with median/average/new-build stats and a yearly trend.
+- **Source land**: scans the councils' brownfield land registers for the area on screen. Filter by size, dwellings, permission status and ownership, then export to CSV or add sites to the pipeline in one click.
+- **Development appraisal**: residual land value with SDLT and acquisition costs, £/acre, £/plot, profit on cost, affordable housing, a density-to-units helper, a 5×5 sensitivity grid, and headroom against the asking price.
+- **Pipeline CRM**: drag-and-drop kanban across 7 stages, plus a table view, search, tags, owner and asking price, notes, an activity log, and CSV/GeoJSON export and GeoJSON import.
+- **Tools**: draw a site (with live ha/acres/sq ft), measure distance, undo points, print a site report to PDF.
+- **Keyboard shortcuts**: `/` search, `D` draw, `M` measure, `L` layers, `S` source, `A` appraise, `P` pipeline, `B` base map, `?` help.
+- Works on phones and supports dark mode.
+
+## Data sources (all free, Open Government Licence or ODbL)
+
+| Data | Source |
+|---|---|
+| Planning constraints, brownfield register, LPA boundaries | planning.data.gov.uk (England) |
+| Postcodes and admin geography | postcodes.io |
+| Place search | OpenStreetMap Nominatim |
+| Sold prices | HM Land Registry Price Paid (SPARQL) |
+| Base maps | CARTO / OpenStreetMap / Esri imagery |
+
+## Not yet included (these need paid or licensed data)
+
+- Freehold title polygons and ownership (HMLR INSPIRE bulk data, or the OS NGD/HMLR APIs)
+- Company ownership and owner contact details (CCOD/OCOD + Companies House)
+- Full planning application history for every council (via a commercial aggregator)
+- EPC data (free API key from the EPC register)
+
+Pipeline data is currently saved in the browser (localStorage). The next step for a multi-user product is a backend with accounts and shared pipelines.
