@@ -9,7 +9,9 @@ import { PolicyTab } from './PolicyTab';
 
 export type Selection =
   | { kind: 'point'; lng: number; lat: number }
-  | { kind: 'area'; geometry: Polygon | MultiPolygon; siteId?: string };
+  | { kind: 'area'; geometry: Polygon | MultiPolygon; siteId?: string; plot?: PlotInfo };
+
+export interface PlotInfo { source: 'hmlr' | 'osm'; inspireIds: string[]; label?: string; merged: number }
 
 interface Props {
   selection: Selection;
@@ -106,7 +108,9 @@ export function ReportPanel({ selection, site, onClose, onDrawBoundary, onApprai
   const save = () => {
     if (selection.kind !== 'area') return;
     const s = siteStore.add({
-      name: pc ? `Land near ${pc.postcode}` : `Site ${new Date().toLocaleDateString('en-GB')}`,
+      name: plot ? title : pc ? `Land near ${pc.postcode}` : `Site ${new Date().toLocaleDateString('en-GB')}`,
+      tags: plot ? [plot.source === 'hmlr' ? 'title plot' : 'osm outline'] : [],
+      notes: plot?.inspireIds.length ? `HM Land Registry INSPIRE ID${plot.inspireIds.length > 1 ? 's' : ''}: ${plot.inspireIds.join(', ')}` : '',
       geometry: selection.geometry,
       areaHa: areaM2 / 10000,
       address: pc?.postcode,
@@ -121,7 +125,15 @@ export function ReportPanel({ selection, site, onClose, onDrawBoundary, onApprai
   const scoreLabel = score == null ? '' : score >= 80 ? 'Low constraint' : score >= 55 ? 'Some constraints' : 'Heavily constrained';
   const scoreColor = score == null ? 'var(--muted)' : score >= 80 ? 'var(--good)' : score >= 55 ? 'var(--warn)' : 'var(--bad)';
   const [lng, lat] = center;
-  const title = site?.name || (selection.kind === 'area' ? 'Drawn site' : pc?.postcode ? `Near ${pc.postcode}` : 'Location');
+  const plot = selection.kind === 'area' ? selection.plot : undefined;
+  const near = pc?.postcode ? ` near ${pc.postcode}` : '';
+  const title =
+    site?.name ||
+    (plot
+      ? plot.source === 'hmlr'
+        ? plot.merged > 1 ? `${plot.merged} merged plots${near}` : `Title plot${near}`
+        : `${plot.label || 'Outline'}${near}`
+      : selection.kind === 'area' ? 'Drawn site' : pc?.postcode ? `Near ${pc.postcode}` : 'Location');
 
   return (
     <div className="panel-body report">
@@ -134,6 +146,25 @@ export function ReportPanel({ selection, site, onClose, onDrawBoundary, onApprai
         <p className="muted">
           {[pc?.admin_ward, lpa || pc?.admin_district].filter(Boolean).join(' · ') || `${lat.toFixed(5)}, ${lng.toFixed(5)}`}
         </p>
+        {plot && !site && (
+          <div className={'plot-badge ' + plot.source}>
+            <Icon name="plot" size={15} />
+            <div>
+              <b>{plot.source === 'hmlr' ? 'HM Land Registry title extent' : 'OpenStreetMap outline'}</b>
+              <span>
+                {plot.source === 'hmlr'
+                  ? <>{plot.inspireIds.length ? `INSPIRE ID ${plot.inspireIds.join(', ')} · ` : ''}Indicative extent — check the title plan. </>
+                  : <>No registered title outline found here; this is the mapped building or land outline. </>}
+                <span className="muted">Shift-click to add neighbouring plots.</span>
+              </span>
+            </div>
+            {plot.source === 'hmlr' && (
+              <a className="btn sm" href="https://search-property-information.service.gov.uk/" target="_blank" rel="noreferrer" title="Find the title number and buy the official register and title plan from HM Land Registry">
+                Title register <Icon name="external" size={12} />
+              </a>
+            )}
+          </div>
+        )}
         {site && (
           <div className="stage-row">
             {STAGES.map((st) => (

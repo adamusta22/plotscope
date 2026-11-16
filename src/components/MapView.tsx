@@ -6,6 +6,7 @@ import type { Feature, FeatureCollection, Geometry } from 'geojson';
 import { BASEMAPS, BasemapId, DATASETS, DATASET_BY_ID } from '../lib/datasets';
 import { bboxWKT, fetchEntities, prop } from '../lib/api';
 import { Site, STAGE_COLORS } from '../lib/store';
+import { parcelLayer, parcelTileUrl } from '../lib/parcels';
 
 export type DrawMode = 'polygon' | 'measure' | null;
 export type LayerStatus = { state: 'off' | 'zoom' | 'loading' | 'ok' | 'error'; count?: number };
@@ -15,6 +16,7 @@ export interface MapClick {
   lat: number;
   features: Feature[];
   siteId?: string;
+  shift: boolean;
 }
 
 interface Props {
@@ -27,12 +29,17 @@ interface Props {
   highlight?: Feature | null;
   sourcing?: FeatureCollection | null;
   drawMode: DrawMode;
+  showPlots: boolean;
+  pending?: [number, number] | null;
   onDrawProgress: (text: string) => void;
   onDrawComplete: (g: Geometry, mode: DrawMode) => void;
   onClick: (c: MapClick) => void;
   onStatus: (s: Record<string, LayerStatus>) => void;
   onReady: (m: MLMap) => void;
 }
+
+// Captured once: React's dev double-mount removes the first map, which clears the hash
+const INITIAL_HASH = typeof location !== 'undefined' ? location.hash : '';
 
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] };
 const OVERLAY_INTERACTIVE = new Set<string>();
@@ -49,6 +56,8 @@ export function MapView(props: Props) {
   const verts = useRef<number[][]>([]);
   const cursor = useRef<number[] | null>(null);
   const marker = useRef<maplibregl.Marker | null>(null);
+  const pendingMarker = useRef<maplibregl.Marker | null>(null);
+  const anim = useRef<number>(0);
 
   // ---------- init ----------
   useEffect(() => {
@@ -61,11 +70,16 @@ export function MapView(props: Props) {
     sources['bm-labels'] = { type: 'raster', tiles: ['a', 'b', 'c'].map((s) => `https://${s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}@2x.png`), tileSize: 256 };
     layers.push({ id: 'bm-labels', type: 'raster', source: 'bm-labels', layout: { visibility: props.basemap === 'satellite' ? 'visible' : 'none' } });
 
+    // Restore the view from the URL (#map=zoom/lat/lng[/bearing/pitch]) so links and reloads keep their place
+    const h = (location.hash.includes('map=') ? location.hash : INITIAL_HASH).match(/map=([\d.]+)\/(-?[\d.]+)\/(-?[\d.]+)(?:\/(-?[\d.]+))?(?:\/([\d.]+))?/);
     const m = new maplibregl.Map({
       container: el.current!,
       style: { version: 8, sources, layers },
-      center: [-1.6, 52.6],
-      zoom: 6,
+      center: h ? [+h[3], +h[2]] : [-1.6, 52.6],
+      zoom: h ? +h[1] : 6,
+      bearing: h?.[4] ? +h[4] : 0,
+      pitch: h?.[5] ? +h[5] : 0,
+      boxZoom: false, // shift-click is used to merge plots
       hash: 'map',
       maxPitch: 70,
       attributionControl: { compact: true },
@@ -74,9 +88,18 @@ export function MapView(props: Props) {
     map.current = m;
     m.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'bottom-right');
     m.addControl(new maplibregl.GeolocateControl({ positionOptions: { enableHighAccuracy: true }, fitBoundsOptions: { maxZoom: 16 } }), 'bottom-right');
-    m.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
+    m.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-right');
 
     m.on('load', () => {
+      // HM Land Registry title plot outlines (raster WMS via the /lr proxy), below all overlays
+      parcelLayer().then((layer) => {
+        if (!map.current || m.getSource('plots')) return;
+        m.addSource('plots', { type: 'raster', tiles: [parcelTileUrl(layer)], tileSize: 512, minzoom: 15, attribution: 'Title extents © Crown copyright, HM Land Registry' });
+        const before = m.getStyle().layers.find((l) => l.id.startsWith('ds-'))?.id;
+        m.addLayer({ id: 'plots', type: 'raster', source: 'plots', minzoom: 15, paint: { 'raster-opacity': 0.75, 'raster-fade-duration': 200 } }, before);
+        syncPlots();
+      });
+
       // Constraint overlays (polygons below points)
       const ordered = [...DATASETS].sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'polygon' ? -1 : 1));
       for (const d of ordered) {
@@ -108,8 +131,11 @@ export function MapView(props: Props) {
 
       // Selection / highlight
       m.addSource('selection', { type: 'geojson', data: EMPTY });
-      m.addLayer({ id: 'selection-fill', type: 'fill', source: 'selection', filter: ['==', ['geometry-type'], 'Polygon'], paint: { 'fill-color': '#5c7cfa', 'fill-opacity': 0.18 } });
-      m.addLayer({ id: 'selection-line', type: 'line', source: 'selection', paint: { 'line-color': '#5c7cfa', 'line-width': 3, 'line-dasharray': [2, 1] } });
+      const polyOnly: any = ['match', ['geometry-type'], ['Polygon', 'MultiPolygon'], true, false];
+      m.addLayer({ id: 'selection-fill', type: 'fill', source: 'selection', filter: polyOnly, paint: { 'fill-color': SEL, 'fill-opacity': 0.16 } });
+      m.addLayer({ id: 'selection-glow', type: 'line', source: 'selection', paint: { 'line-color': SEL, 'line-width': 12, 'line-blur': 8, 'line-opacity': 0.45 } });
+      m.addLayer({ id: 'selection-casing', type: 'line', source: 'selection', paint: { 'line-color': '#ffffff', 'line-width': 5 } });
+      m.addLayer({ id: 'selection-line', type: 'line', source: 'selection', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': SEL, 'line-width': 3, 'line-dasharray': DASH[0] } });
       m.addSource('highlight', { type: 'geojson', data: EMPTY });
       m.addLayer({ id: 'highlight-line', type: 'line', source: 'highlight', paint: { 'line-color': '#ffd43b', 'line-width': 4 } });
       m.addLayer({ id: 'highlight-pt', type: 'circle', source: 'highlight', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-color': '#ffd43b', 'circle-radius': 12, 'circle-opacity': 0.5, 'circle-stroke-color': '#ffd43b', 'circle-stroke-width': 2 } });
@@ -173,6 +199,7 @@ export function MapView(props: Props) {
       const feats = layers.length ? m.queryRenderedFeatures([[e.point.x - 3, e.point.y - 3], [e.point.x + 3, e.point.y + 3]], { layers }) : [];
       const site = feats.find((f) => f.source === 'sites');
       P.current.onClick({
+        shift: !!(e.originalEvent as MouseEvent).shiftKey,
         lng: e.lngLat.lng,
         lat: e.lngLat.lat,
         siteId: site?.properties?.id,
@@ -315,6 +342,8 @@ export function MapView(props: Props) {
     syncSites();
     syncSelection();
     syncHighlight();
+    syncPlots();
+    syncPending();
     setData('sourcing', P.current.sourcing ?? EMPTY);
   }
 
@@ -358,6 +387,43 @@ export function MapView(props: Props) {
     } else {
       setData('selection', g ? { type: 'Feature', geometry: g, properties: {} } : EMPTY);
     }
+    animateSelection(!!g && (g.type === 'Polygon' || g.type === 'MultiPolygon'));
+  }
+
+  function syncPlots() {
+    const m = map.current!;
+    if (!m.getLayer('plots')) return;
+    m.setLayoutProperty('plots', 'visibility', P.current.showPlots ? 'visible' : 'none');
+    // Outlines are dark lines; brighten them to white on dark backgrounds
+    const darkBg = P.current.basemap === 'satellite' || P.current.basemap === 'dark';
+    m.setPaintProperty('plots', 'raster-brightness-min', darkBg ? 1 : 0);
+    m.setPaintProperty('plots', 'raster-opacity', darkBg ? 0.85 : 0.7);
+  }
+
+  function syncPending() {
+    pendingMarker.current?.remove();
+    pendingMarker.current = null;
+    const p = P.current.pending;
+    if (!p) return;
+    const div = document.createElement('div');
+    div.appendChild(document.createElement('div')).className = 'seek-marker';
+    pendingMarker.current = new maplibregl.Marker({ element: div }).setLngLat(p).addTo(map.current!);
+  }
+
+  /** "Marching ants" on the selected plot outline. */
+  function animateSelection(on: boolean) {
+    cancelAnimationFrame(anim.current);
+    if (!on) return;
+    let step = 0, last = 0;
+    const tick = (t: number) => {
+      if (t - last > 70) {
+        last = t;
+        step = (step + 1) % DASH.length;
+        if (map.current?.getLayer('selection-line')) map.current.setPaintProperty('selection-line', 'line-dasharray', DASH[step]);
+      }
+      anim.current = requestAnimationFrame(tick);
+    };
+    anim.current = requestAnimationFrame(tick);
   }
 
   function syncHighlight() {
@@ -365,7 +431,10 @@ export function MapView(props: Props) {
   }
 
   // ---------- prop sync ----------
-  useEffect(() => { if (loaded.current) syncBasemap(); }, [props.basemap]);
+  useEffect(() => { if (loaded.current) { syncBasemap(); syncPlots(); } }, [props.basemap]);
+  useEffect(() => { if (loaded.current) syncPlots(); }, [props.showPlots]);
+  useEffect(() => { if (loaded.current) syncPending(); }, [props.pending?.join(',')]);
+  useEffect(() => () => cancelAnimationFrame(anim.current), []);
   useEffect(() => { if (loaded.current) syncLayers(); }, [props.enabled.join(','), props.opacity]);
   useEffect(() => { if (loaded.current) syncSites(); }, [props.sites, props.selectedSiteId]);
   useEffect(() => { if (loaded.current) syncSelection(); }, [props.selection]);
@@ -389,6 +458,13 @@ export function MapView(props: Props) {
 
   return <div ref={el} className="map" />;
 }
+
+const SEL = '#4f46e5';
+// dash patterns that shift along the line, giving a "marching ants" effect
+const DASH: number[][] = [
+  [0, 4, 3], [0.5, 4, 2.5], [1, 4, 2], [1.5, 4, 1.5], [2, 4, 1], [2.5, 4, 0.5], [3, 4, 0],
+  [0, 0.5, 3, 3.5], [0, 1, 3, 3], [0, 1.5, 3, 2.5], [0, 2, 3, 2], [0, 2.5, 3, 1.5], [0, 3, 3, 1], [0, 3.5, 3, 0.5],
+];
 
 function contains(outer: number[], inner: number[]) {
   return outer[0] <= inner[0] && outer[1] <= inner[1] && outer[2] >= inner[2] && outer[3] >= inner[3];

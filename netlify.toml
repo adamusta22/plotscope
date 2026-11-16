@@ -8,6 +8,13 @@
 [functions]
   node_bundler = "esbuild"
 
+# Same-origin proxy to HM Land Registry's INSPIRE plot boundaries service
+[[redirects]]
+  from = "/lr/*"
+  to = "https://inspire.landregistry.gov.uk/:splat"
+  status = 200
+  force = true
+
 # Long-lived caching for fingerprinted assets
 [[headers]]
   for = "/assets/*"

@@ -16,6 +16,7 @@ Then open http://localhost:5173. `npm run dev` starts both the web app and the s
 ## Features
 
 - **Map**: smooth fly-to animations, five base maps (streets, light, dark, satellite with labels, OSM), tilt and rotate, geolocate, scale bar. The map position is kept in the URL so you can share links.
+- **Plot boundaries (new)**: click any property to select its plot. The outline comes from HM Land Registry's title extents (INSPIRE index polygons), with the INSPIRE ID and a link to buy the title register. Where no registered title outline exists, the building or land outline from OpenStreetMap is used instead. Shift-click merges neighbouring plots into one site. Plot outlines appear from zoom 15; toggle them with `T`.
 - **Search**: postcodes, outcodes, addresses and places, `lat,lng` coordinates and your own saved sites. Keyboard navigation works.
 - **22 constraint layers** from planning.data.gov.uk: Green Belt, flood zones, SSSI, ancient woodland, SAC/SPA/Ramsar, National Landscapes, National Parks, conservation areas, listed buildings, scheduled monuments, Article 4, TPOs, brownfield register, planning applications and LPA boundaries. Layers load for the area in view and highlight on hover.
 - **Instant site report**: click anywhere or draw a boundary to see every designation, the % of the site each one covers, a 0–100 constraint score, area/acres/perimeter, postcode, ward, LPA, constituency, LSOA and research links (EPC, title search, flood map, Street View).

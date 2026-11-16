@@ -12,8 +12,9 @@ import { PipelineBoard } from './components/PipelineBoard';
 import { Icon } from './components/Icon';
 import { AgentPanel, ChatMsg } from './components/AgentPanel';
 import type { AgentAction, AgentContext } from './lib/agentTypes';
-import { BasemapId } from './lib/datasets';
+import { BasemapId, DATASET_BY_ID } from './lib/datasets';
 import { Place, squareAround } from './lib/api';
+import { plotAt } from './lib/parcels';
 import { Site, siteStore, usePref, useSites } from './lib/store';
 
 export const APP_NAME = 'Plotscope';
@@ -25,7 +26,7 @@ export default function App() {
   const [map, setMap] = useState<MLMap | null>(null);
   const [panel, setPanel] = useState<Panel>('layers');
   const [board, setBoard] = useState(false);
-  const [basemap, setBasemap] = usePref<BasemapId>('basemap', 'streets');
+  const [basemap, setBasemap] = usePref<BasemapId>('basemap', 'light');
   const [enabled, setEnabled] = usePref<string[]>('layers', ['green-belt', 'conservation-area', 'flood-risk-zone']);
   const [opacity, setOpacity] = usePref('opacity', 0.9);
   const [status, setStatus] = useState<Record<string, LayerStatus>>({});
@@ -38,6 +39,9 @@ export default function App() {
   const [appraiseId, setAppraiseId] = useState<string>();
   const [toasts, setToasts] = useState<{ id: number; text: string }[]>([]);
   const [help, setHelp] = useState(false);
+  const [showPlots, setShowPlots] = usePref('plots', true);
+  const [pending, setPending] = useState<[number, number] | null>(null);
+  const plotAbort = useRef<AbortController>();
   const [chat, setChat] = useState<ChatMsg[]>([]);
   const [askSeed, setAskSeed] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -134,8 +138,38 @@ export default function App() {
       const s = sites.find((x) => x.id === c.siteId);
       if (s) return openSite(s);
     }
-    setSelection({ kind: 'point', lng: c.lng, lat: c.lat });
     setPanel('report');
+    setBoard(false);
+    if (!showPlots) return setSelection({ kind: 'point', lng: c.lng, lat: c.lat });
+
+    // Find the plot (title extent) under the click
+    plotAbort.current?.abort();
+    const ac = new AbortController();
+    plotAbort.current = ac;
+    const prev = selection;
+    setPending([c.lng, c.lat]);
+    plotAt(c.lng, c.lat, ac.signal)
+      .then((plot) => {
+        if (ac.signal.aborted) return;
+        if (!plot) {
+          setSelection({ kind: 'point', lng: c.lng, lat: c.lat });
+          return toast('No plot boundary found here — showing the point instead');
+        }
+        // Shift-click adds the plot to the current (unsaved) selection
+        if (c.shift && prev?.kind === 'area' && !prev.siteId) {
+          try {
+            const merged = turf.union(turf.featureCollection([turf.feature(prev.geometry), turf.feature(plot.geometry)]));
+            if (merged) {
+              const ids = [...(prev.plot?.inspireIds || []), ...(plot.inspireId ? [plot.inspireId] : [])];
+              setSelection({ kind: 'area', geometry: merged.geometry as Polygon, plot: { source: plot.source, inspireIds: ids, merged: (prev.plot?.merged || 1) + 1 } });
+              return toast(`Merged ${(prev.plot?.merged || 1) + 1} plots`);
+            }
+          } catch { /* fall through to single plot */ }
+        }
+        setSelection({ kind: 'area', geometry: plot.geometry as Polygon, plot: { source: plot.source, inspireIds: plot.inspireId ? [plot.inspireId] : [], label: plot.label, merged: 1 } });
+      })
+      .catch(() => !ac.signal.aborted && setSelection({ kind: 'point', lng: c.lng, lat: c.lat }))
+      .finally(() => { if (plotAbort.current === ac) setPending(null); });
   };
 
   const onDrawComplete = (g: Geometry, mode: DrawMode) => {
@@ -164,6 +198,7 @@ export default function App() {
       else if (k === 'a') setPanel((p) => (p === 'appraise' ? null : 'appraise'));
       else if (k === 'i') { setBoard(false); setPanel((p) => (p === 'assistant' ? null : 'assistant')); }
       else if (k === 'p') setBoard((b) => !b);
+      else if (k === 't') setShowPlots(!showPlots);
       else if (k === 'b') {
         const order: BasemapId[] = ['streets', 'satellite', 'light', 'dark', 'osm'];
         setBasemap(order[(order.indexOf(basemap) + 1) % order.length]);
@@ -171,7 +206,7 @@ export default function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [drawMode, help, board, basemap]);
+  }, [drawMode, help, board, basemap, showPlots]);
 
   const selGeom: Geometry | null = measure || (selection ? (selection.kind === 'point' ? { type: 'Point', coordinates: [selection.lng, selection.lat] } : selectedSite ? null : selection.geometry) : null);
 
@@ -190,7 +225,7 @@ export default function App() {
     <div className={'app' + (panel ? ' has-panel' : '')}>
       <nav className="rail">
         <div className="logo" title={APP_NAME}>
-          <svg viewBox="0 0 32 32" width="30" height="30"><rect width="32" height="32" rx="9" fill="var(--accent)" /><path d="M8 22 13 9l6 4 5 9z" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinejoin="round" /><circle cx="13" cy="9" r="2.2" fill="#fff" /></svg>
+          <svg viewBox="0 0 32 32" width="30" height="30"><defs><linearGradient id="logoGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#6366f1" /><stop offset="1" stopColor="#8b5cf6" /></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#logoGrad)" /><path d="M8 22 13 9l6 4 5 9z" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinejoin="round" /><circle cx="13" cy="9" r="2.2" fill="#fff" /></svg>
         </div>
         {NAV.map((n) => {
           const on = n.id === 'pipeline' ? board : panel === n.id && !board;
@@ -277,6 +312,8 @@ export default function App() {
           highlight={highlight}
           sourcing={sourcing}
           drawMode={drawMode}
+          showPlots={showPlots}
+          pending={pending}
           onDrawProgress={setDrawText}
           onDrawComplete={onDrawComplete}
           onClick={onMapClick}
@@ -284,11 +321,31 @@ export default function App() {
           onReady={setMap}
         />
 
+        {(pending || Object.values(status).some((x) => x.state === 'loading')) && <div className="progress"><i /></div>}
+
+        {enabled.length > 0 && (
+          <div className="legend" aria-label="Active map layers">
+            {enabled.filter((id) => DATASET_BY_ID[id]).map((id) => {
+              const d = DATASET_BY_ID[id];
+              const st = status[id];
+              return (
+                <span key={id} title={d.desc}>
+                  <i style={{ background: d.color, borderRadius: d.kind === 'point' ? '50%' : 3 }} />
+                  {d.name}
+                  {st?.state === 'zoom' && <em>zoom in</em>}
+                  {st?.state === 'ok' && st.count != null && <em>{st.count >= 500 ? '500+' : st.count}</em>}
+                </span>
+              );
+            })}
+          </div>
+        )}
+
         <div className="topbar">
           <SearchBar ref={searchRef} sites={sites} onPlace={onPlace} onSite={openSite} />
         </div>
 
         <div className="toolbox">
+          <button className={'tool' + (showPlots ? ' on' : '')} onClick={() => setShowPlots(!showPlots)} title="Plot boundaries: click a property to select its title plot (T). Shift-click to merge plots."><Icon name="plot" /><span>Plots</span></button>
           <button className={'tool' + (drawMode === 'polygon' ? ' on' : '')} onClick={() => setDrawMode(drawMode === 'polygon' ? null : 'polygon')} title="Draw site (D)"><Icon name="draw" /><span>Draw</span></button>
           <button className={'tool' + (drawMode === 'measure' ? ' on' : '')} onClick={() => setDrawMode(drawMode === 'measure' ? null : 'measure')} title="Measure (M)"><Icon name="ruler" /><span>Measure</span></button>
           <button className={'tool' + (basemap === 'satellite' ? ' on' : '')} onClick={() => setBasemap(basemap === 'satellite' ? 'streets' : 'satellite')} title="Toggle satellite (B cycles)"><Icon name="globe" /><span>Satellite</span></button>
@@ -323,7 +380,7 @@ export default function App() {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3>Keyboard shortcuts</h3>
             <dl className="keys">
-              {[['/', 'Search'], ['D', 'Draw a site boundary'], ['M', 'Measure distance'], ['L', 'Layers'], ['S', 'Source land'], ['A', 'Appraisal'], ['I', 'AI assistant'], ['P', 'Pipeline board'], ['B', 'Cycle base map'], ['Enter', 'Finish drawing'], ['Backspace', 'Undo last point'], ['Esc', 'Cancel / close'], ['?', 'This help']].map(([k, v]) => (
+              {[['/', 'Search'], ['D', 'Draw a site boundary'], ['M', 'Measure distance'], ['L', 'Layers'], ['S', 'Source land'], ['A', 'Appraisal'], ['I', 'AI assistant'], ['P', 'Pipeline board'], ['B', 'Cycle base map'], ['T', 'Plot boundaries on/off'], ['Shift + click', 'Merge plots'], ['Enter', 'Finish drawing'], ['Backspace', 'Undo last point'], ['Esc', 'Cancel / close'], ['?', 'This help']].map(([k, v]) => (
                 <div key={k}><dt><kbd>{k}</kbd></dt><dd>{v}</dd></div>
               ))}
             </dl>

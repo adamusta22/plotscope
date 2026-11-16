@@ -434,3 +434,149 @@ label.check { display: flex; align-items: center; gap: 8px; color: var(--text); 
 .tag.kind-spd { color: #ae3ec9; }
 .tag.kind-local-plan { color: var(--accent); }
 .tag.kind-neighbourhood { color: var(--good); }
+
+/* =====================================================================
+   v2 design: refined palette, full-bleed map, floating glass panels
+   ===================================================================== */
+:root {
+  --bg: #eef1f6;
+  --surface: #ffffff;
+  --surface-2: #f4f6fa;
+  --border: #e4e8f0;
+  --text: #0f172a;
+  --muted: #64748b;
+  --accent: #4f46e5;
+  --accent-2: #7c3aed;
+  --accent-soft: #eef0ff;
+  --rail: #0b1020;
+  --rail-text: #94a3c4;
+  --good: #16a34a;
+  --warn: #d97706;
+  --bad: #dc2626;
+  --glass: rgba(255, 255, 255, 0.86);
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 12px 32px -12px rgba(15, 23, 42, 0.28);
+  --shadow-lg: 0 2px 4px rgba(15, 23, 42, 0.06), 0 24px 60px -18px rgba(15, 23, 42, 0.4);
+  --panel-w: 410px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #070a14;
+    --surface: #111627;
+    --surface-2: #181e33;
+    --border: #252c46;
+    --text: #e6e9f5;
+    --muted: #8b93b4;
+    --accent: #818cf8;
+    --accent-2: #a78bfa;
+    --accent-soft: #1f2547;
+    --rail: #05070f;
+    --glass: rgba(17, 22, 39, 0.86);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px -12px rgba(0, 0, 0, 0.8);
+    --shadow-lg: 0 24px 60px -18px rgba(0, 0, 0, 0.9);
+  }
+}
+body { letter-spacing: -0.005em; }
+::selection { background: color-mix(in srgb, var(--accent) 25%, transparent); }
+* { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--muted) 35%, transparent) transparent; }
+
+/* Rail: slimmer, with an active indicator */
+.rail { gap: 2px; box-shadow: 1px 0 0 rgba(255, 255, 255, 0.04); }
+.rail-btn { position: relative; border-radius: 12px; transition: background 0.2s, color 0.2s, transform 0.2s var(--ease); }
+.rail-btn:active { transform: scale(0.94); }
+.rail-btn.on { background: rgba(129, 140, 248, 0.16); color: #fff; box-shadow: none; }
+.rail-btn.on::before { content: ''; position: absolute; left: -7px; top: 22%; bottom: 22%; width: 3px; border-radius: 3px; background: linear-gradient(var(--accent), var(--accent-2)); }
+.rail-btn.on svg { color: #a5b4fc; }
+.logo svg rect { fill: url(#logoGrad); }
+
+/* Buttons & inputs */
+.btn { border-radius: 10px; font-weight: 600; }
+.btn.primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); box-shadow: 0 8px 20px -10px var(--accent); }
+.btn.primary:hover { filter: brightness(1.06); transform: translateY(-1px); }
+.input { border-radius: 10px; background: var(--surface); }
+.chip.on, .seg button.on { box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12); }
+
+/* Top progress bar while something is loading */
+.progress { position: absolute; top: 0; left: 0; right: 0; height: 3px; z-index: 40; overflow: hidden; pointer-events: none; }
+.progress i { position: absolute; inset: 0; background: linear-gradient(90deg, transparent, var(--accent), var(--accent-2), transparent); animation: progress 1.1s ease-in-out infinite; }
+@keyframes progress { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+
+/* Plot lookup marker */
+.seek-marker { width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 18%, transparent); animation: seek 1s ease-out infinite; }
+@keyframes seek { from { transform: scale(0.3); opacity: 1; } to { transform: scale(1.2); opacity: 0; } }
+
+/* Plot badge in the report */
+.plot-badge { display: flex; gap: 10px; align-items: center; margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent); animation: pop2 0.4s var(--ease); }
+.plot-badge > svg { color: var(--accent); flex-shrink: 0; }
+.plot-badge > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.plot-badge b { font-size: 12.5px; }
+.plot-badge span { font-size: 11.5px; line-height: 1.4; }
+.plot-badge.osm { background: var(--surface-2); border-color: var(--border); }
+.plot-badge.osm > svg { color: var(--muted); }
+.plot-badge .btn { flex-shrink: 0; background: var(--surface); }
+
+/* Active layer legend (bottom-left) */
+.legend { position: absolute; left: 14px; bottom: 34px; display: flex; flex-wrap: wrap; gap: 6px; max-width: min(560px, calc(100% - 120px)); z-index: 4; pointer-events: none; }
+.legend span { pointer-events: auto; display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px 5px 7px; border-radius: 99px; background: var(--glass); backdrop-filter: blur(10px) saturate(1.4); box-shadow: var(--shadow); font-size: 11.5px; font-weight: 600; color: var(--text); animation: pop2 0.35s var(--ease) backwards; }
+.legend i { width: 10px; height: 10px; border-radius: 3px; }
+.legend em { font-style: normal; color: var(--muted); font-weight: 500; }
+
+/* Map tools as one grouped card */
+.toolbox { gap: 0; background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border-radius: 16px; box-shadow: var(--shadow); padding: 5px; border: 1px solid color-mix(in srgb, var(--border) 70%, transparent); }
+.tool { background: transparent; box-shadow: none; border: 0; border-radius: 11px; width: 56px; }
+.tool:hover { background: var(--surface-2); transform: none; }
+.tool.on { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; }
+
+/* Search */
+.search { background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border-color: color-mix(in srgb, var(--border) 70%, transparent); border-radius: 16px; height: 50px; }
+.search.open { border-radius: 16px 16px 0 0; }
+.search-results { background: var(--surface); }
+.search kbd { background: transparent; }
+
+/* Map controls */
+.maplibregl-ctrl-group { background: var(--glass) !important; backdrop-filter: blur(14px); border-radius: 12px !important; }
+.maplibregl-ctrl-group button + button { border-top-color: var(--border) !important; }
+@media (prefers-color-scheme: dark) { .maplibregl-ctrl-group button .maplibregl-ctrl-icon { filter: invert(1) hue-rotate(180deg); } }
+.maplibregl-ctrl-attrib { background: var(--glass) !important; border-radius: 8px; }
+
+/* Report polish */
+.report-head h2, .title-input { font-size: 21px; letter-spacing: -0.02em; }
+.stat { background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px; }
+.stat.score { background: linear-gradient(135deg, color-mix(in srgb, var(--c) 10%, var(--surface)), var(--surface)); }
+.constraint, .policy { border-radius: 13px; background: var(--surface); transition: box-shadow 0.2s, border-color 0.2s; }
+.constraint:hover, .policy:hover { border-color: color-mix(in srgb, var(--accent) 30%, var(--border)); }
+.tabs { position: sticky; top: -16px; z-index: 2; background: var(--surface); }
+.tabs button { border-radius: 8px 8px 0 0; }
+.tabs button:hover { color: var(--text); }
+.links a { border: 1px solid var(--border); background: var(--surface); }
+
+/* ---------- Desktop: full-bleed map with a floating panel ---------- */
+@media (min-width: 761px) {
+  .app { grid-template-columns: var(--rail-w) 1fr; position: relative; }
+  .stage { grid-column: 2; grid-row: 1; }
+  .panel {
+    position: absolute; z-index: 20;
+    left: calc(var(--rail-w) + 12px); top: 12px; bottom: 12px;
+    width: var(--panel-w) !important;
+    border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+    border-radius: 20px;
+    background: var(--surface);
+    box-shadow: var(--shadow-lg);
+    transform: translateX(calc(-100% - var(--rail-w) - 24px));
+    opacity: 0;
+    transition: transform 0.5s var(--ease), opacity 0.3s;
+  }
+  .panel.open { transform: none; opacity: 1; }
+  .panel-head { padding: 16px 18px 12px; background: linear-gradient(var(--surface), color-mix(in srgb, var(--surface) 92%, transparent)); }
+  .panel-head h3 { font-size: 15.5px; letter-spacing: -0.01em; }
+  .app.has-panel .topbar { left: calc(var(--panel-w) + 26px); justify-content: flex-start; }
+  .topbar { transition: left 0.5s var(--ease); }
+  .app.has-panel .legend { left: calc(var(--panel-w) + 26px); }
+  .legend { transition: left 0.5s var(--ease); }
+  .app.has-panel .welcome { left: calc(50% + var(--panel-w) / 2); }
+  .app.has-panel .draw-hint, .app.has-panel .toasts { left: calc(50% + var(--panel-w) / 2); }
+  .board-overlay { inset: 0 0 0 var(--rail-w); }
+}
+@media (max-width: 760px) {
+  .legend { display: none; }
+  .toolbox { flex-direction: column; }
+}

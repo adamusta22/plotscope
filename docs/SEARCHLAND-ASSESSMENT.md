@@ -32,7 +32,7 @@ Legend: ✅ Plotscope has it · 🟡 partial · ❌ missing
 
 ### 1. Map, title boundaries and site selection
 - **Searchland:** a vector map of every registered title (from HMLR INSPIRE polygons) with click-to-open title cards. Users can draw custom areas and merge titles.
-- **Plotscope:** 🟡 a fast map, 5 basemaps, drawing and measuring tools, and click-for-report anywhere. **There are no title polygons**, so users draw boundaries by hand.
+- **Plotscope:** 🟡 **Update:** plot outlines now show from zoom 15, and clicking a property selects its Land Registry title extent, with an animated outline, area, constraints and the INSPIRE ID. Shift-click merges plots. Where no title outline exists, it falls back to the OpenStreetMap building outline. Still missing: the **title number and owner** on click.
 - **Gap and fix:** load HMLR INSPIRE Index Polygons. They are free under the INSPIRE licence, but bulk download only (~25M polygons), and need to be served as vector tiles (PMTiles/Tippecanoe). INSPIRE polygons have no title number. The join to a title needs the paid HMLR Title Number API, or a spatial match to CCOD/OCOD addresses.
 
 ### 2. Ownership intelligence
