@@ -5,6 +5,7 @@ import { CONSTRAINT_IDS, DATASET_BY_ID, SEVERITY_WEIGHT, Severity } from '../lib
 import { entityUrl, fetchEntities, nearestPostcodes, PostcodeInfo, pricePaid, prop, Sale, squareAround } from '../lib/api';
 import { ago, download, gbp, num, Site, siteStore, STAGES, STAGE_COLORS, Stage } from '../lib/store';
 import { Icon } from './Icon';
+import { PolicyTab } from './PolicyTab';
 
 export type Selection =
   | { kind: 'point'; lng: number; lat: number }
@@ -17,6 +18,7 @@ interface Props {
   onDrawBoundary: () => void;
   onAppraise: (siteId: string) => void;
   onSaved: (s: Site) => void;
+  onAsk: (q: string) => void;
   onHighlight: (f: Feature | null) => void;
   onFly: (g: Geometry) => void;
   toast: (t: string) => void;
@@ -24,7 +26,7 @@ interface Props {
 
 interface Hit { dataset: string; features: Feature[]; coverage?: number }
 
-export function ReportPanel({ selection, site, onClose, onDrawBoundary, onAppraise, onSaved, onHighlight, onFly, toast }: Props) {
+export function ReportPanel({ selection, site, onClose, onDrawBoundary, onAppraise, onSaved, onAsk, onHighlight, onFly, toast }: Props) {
   const geom: Geometry = selection.kind === 'area' ? selection.geometry : { type: 'Point', coordinates: [selection.lng, selection.lat] };
   const center = useMemo(() => turf.centroid(geom as any).geometry.coordinates, [JSON.stringify(geom)]);
   const areaM2 = selection.kind === 'area' ? turf.area(selection.geometry) : 0;
@@ -34,7 +36,7 @@ export function ReportPanel({ selection, site, onClose, onDrawBoundary, onApprai
   const [lpa, setLpa] = useState<string>();
   const [err, setErr] = useState<string>();
   const [pc, setPc] = useState<PostcodeInfo | null>(null);
-  const [tab, setTab] = useState<'overview' | 'comps' | 'notes'>('overview');
+  const [tab, setTab] = useState<'overview' | 'policy' | 'comps' | 'notes'>('overview');
 
   const key = JSON.stringify(geom);
   useEffect(() => {
@@ -168,6 +170,7 @@ export function ReportPanel({ selection, site, onClose, onDrawBoundary, onApprai
         {selection.kind === 'area' && (
           <button className="btn" onClick={() => onAppraise((site || save())!.id)}><Icon name="calc" size={16} />Appraise</button>
         )}
+        <button className="btn ai" onClick={() => onAsk('Give me a planning and deliverability assessment of this site: constraints, the national and local policies that apply, likely capacity, and the key risks and next steps.')}><Icon name="spark" size={16} />Assess with AI</button>
         <a className="btn" target="_blank" rel="noreferrer" href={`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}`}><Icon name="globe" size={16} />Street View</a>
         <button className="btn ghost" onClick={() => window.print()} title="Print / save as PDF"><Icon name="print" size={16} /></button>
         {selection.kind === 'area' && (
@@ -178,9 +181,9 @@ export function ReportPanel({ selection, site, onClose, onDrawBoundary, onApprai
       </div>
 
       <div className="tabs">
-        {(['overview', 'comps', 'notes'] as const).map((t) => (
+        {(['overview', 'policy', 'comps', 'notes'] as const).map((t) => (
           <button key={t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>
-            {t === 'overview' ? 'Constraints & location' : t === 'comps' ? 'Sold prices' : 'Notes & activity'}
+            {t === 'overview' ? 'Constraints' : t === 'policy' ? 'Policy' : t === 'comps' ? 'Sold prices' : 'Notes'}
           </button>
         ))}
       </div>
@@ -259,6 +262,8 @@ export function ReportPanel({ selection, site, onClose, onDrawBoundary, onApprai
         </>
       )}
 
+      {tab === 'policy' && <PolicyTab datasets={hits ? hits.map((h) => h.dataset) : err ? [] : null} lpa={lpa || pc?.admin_district} onAsk={onAsk} />}
+
       {tab === 'comps' && <Comparables lng={lng} lat={lat} />}
 
       {tab === 'notes' && (site ? <SiteNotes site={site} /> : <div className="callout">Save this site to your pipeline to add notes, owner details and track activity.</div>)}
@@ -290,7 +295,16 @@ function Comparables({ lng, lat }: { lng: number; lat: number }) {
     setSales(null);
     setErr(undefined);
     nearestPostcodes(lng, lat, 25, radius)
-      .then((pcs) => pricePaid(pcs.map((p) => p.postcode)))
+      .then((pcs) => {
+        const codes = pcs.map((p) => p.postcode);
+        // Land Registry may block browser requests (CORS): fall back to the Plotscope API server
+        return pricePaid(codes).catch(() =>
+          fetch(`/api/price-paid?postcodes=${encodeURIComponent(codes.join(','))}`).then((r) => {
+            if (!r.ok) throw new Error(String(r.status));
+            return r.json() as Promise<Sale[]>;
+          }),
+        );
+      })
       .then((s) => live && setSales(s))
       .catch(() => live && setErr('Could not load Land Registry price paid data.'));
     return () => { live = false; };

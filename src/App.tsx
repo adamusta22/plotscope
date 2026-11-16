@@ -10,13 +10,15 @@ import { SourcingPanel } from './components/SourcingPanel';
 import { AppraisalPanel } from './components/AppraisalPanel';
 import { PipelineBoard } from './components/PipelineBoard';
 import { Icon } from './components/Icon';
+import { AgentPanel, ChatMsg } from './components/AgentPanel';
+import type { AgentAction, AgentContext } from './lib/agentTypes';
 import { BasemapId } from './lib/datasets';
 import { Place, squareAround } from './lib/api';
-import { Site, usePref, useSites } from './lib/store';
+import { Site, siteStore, usePref, useSites } from './lib/store';
 
 export const APP_NAME = 'Plotscope';
 
-type Panel = 'layers' | 'report' | 'source' | 'appraise' | null;
+type Panel = 'layers' | 'report' | 'source' | 'appraise' | 'assistant' | null;
 
 export default function App() {
   const sites = useSites();
@@ -36,6 +38,8 @@ export default function App() {
   const [appraiseId, setAppraiseId] = useState<string>();
   const [toasts, setToasts] = useState<{ id: number; text: string }[]>([]);
   const [help, setHelp] = useState(false);
+  const [chat, setChat] = useState<ChatMsg[]>([]);
+  const [askSeed, setAskSeed] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const [zoom, setZoom] = useState(6);
   useEffect(() => {
@@ -68,6 +72,43 @@ export default function App() {
     },
     [map, panel],
   );
+
+  const ask = useCallback((q: string) => {
+    setBoard(false);
+    setPanel('assistant');
+    setAskSeed(q);
+  }, []);
+
+  const agentContext = (): AgentContext => {
+    const ctx: AgentContext = { layersOn: enabled, pipeline: { count: sites.length, names: sites.slice(0, 20).map((s) => `${s.name} (${s.stage})`) } };
+    if (map) {
+      const b = map.getBounds();
+      ctx.view = { west: +b.getWest().toFixed(5), south: +b.getSouth().toFixed(5), east: +b.getEast().toFixed(5), north: +b.getNorth().toFixed(5), zoom: +map.getZoom().toFixed(1) };
+    }
+    if (selection?.kind === 'point') ctx.selection = { kind: 'point', lng: +selection.lng.toFixed(6), lat: +selection.lat.toFixed(6) };
+    if (selection?.kind === 'area') ctx.selection = { kind: 'area', geometry: selection.geometry, areaHa: +(turf.area(selection.geometry) / 10000).toFixed(3) };
+    if (selectedSite) {
+      const { name, stage, areaHa, district, score, constraints, notes, askingPrice } = selectedSite;
+      ctx.site = { name, stage, areaHa, district, score, constraints, notes: notes.slice(0, 1500), askingPrice };
+    }
+    return ctx;
+  };
+
+  const onAgentAction = (a: AgentAction) => {
+    if (!map) return;
+    if (a.type === 'fly_to') map.flyTo({ center: [a.lng, a.lat], zoom: a.zoom ?? 15, speed: 1.3, curve: 1.6, essential: true });
+    else if (a.type === 'open_location') {
+      setSelection({ kind: 'point', lng: a.lng, lat: a.lat });
+      map.flyTo({ center: [a.lng, a.lat], zoom: Math.max(map.getZoom(), 16), speed: 1.3, essential: true });
+    } else if (a.type === 'enable_layers') setEnabled(Array.from(new Set([...enabled, ...a.layers])));
+    else if (a.type === 'show_sites') {
+      setSourcing({ type: 'FeatureCollection', features: a.features });
+      if (a.features.length) map.fitBounds(turf.bbox({ type: 'FeatureCollection', features: a.features }) as any, { padding: 80, maxZoom: 15, duration: 1400 });
+    } else if (a.type === 'save_site' && a.geometry.type === 'Polygon') {
+      const s = siteStore.add({ name: a.name, geometry: a.geometry, areaHa: turf.area(a.geometry) / 10000, notes: a.notes || '', tags: ['ai'] });
+      toast(`Assistant saved "${s.name}" to your pipeline`);
+    }
+  };
 
   const openSite = useCallback(
     (s: Site) => {
@@ -121,6 +162,7 @@ export default function App() {
       else if (k === 'l') setPanel((p) => (p === 'layers' ? null : 'layers'));
       else if (k === 's') setPanel((p) => (p === 'source' ? null : 'source'));
       else if (k === 'a') setPanel((p) => (p === 'appraise' ? null : 'appraise'));
+      else if (k === 'i') { setBoard(false); setPanel((p) => (p === 'assistant' ? null : 'assistant')); }
       else if (k === 'p') setBoard((b) => !b);
       else if (k === 'b') {
         const order: BasemapId[] = ['streets', 'satellite', 'light', 'dark', 'osm'];
@@ -138,10 +180,11 @@ export default function App() {
     { id: 'report', icon: 'report', label: 'Site report', key: '' },
     { id: 'source', icon: 'target', label: 'Source land', key: 'S' },
     { id: 'appraise', icon: 'calc', label: 'Appraisal', key: 'A' },
+    { id: 'assistant', icon: 'spark', label: 'Assistant', key: 'I' },
     { id: 'pipeline', icon: 'board', label: 'Pipeline', key: 'P' },
   ];
 
-  const titles: Record<Exclude<Panel, null>, string> = { layers: 'Map layers', report: 'Site report', source: 'Source land', appraise: 'Development appraisal' };
+  const titles: Record<Exclude<Panel, null>, string> = { layers: 'Map layers', report: 'Site report', source: 'Source land', appraise: 'Development appraisal', assistant: 'AI planning assistant' };
 
   return (
     <div className={'app' + (panel ? ' has-panel' : '')}>
@@ -185,6 +228,7 @@ export default function App() {
                   onClose={() => setSelection(null)}
                   onDrawBoundary={() => setDrawMode('polygon')}
                   onAppraise={(id) => { setAppraiseId(id); setPanel('appraise'); }}
+                  onAsk={ask}
                   onSaved={(s) => setSelection({ kind: 'area', geometry: s.geometry as Polygon, siteId: s.id })}
                   onHighlight={setHighlight}
                   onFly={(g) => fly(g)}
@@ -213,6 +257,9 @@ export default function App() {
                   fly(raw || squareAround(lng, lat, 60));
                 }}
               />
+            )}
+            {panel === 'assistant' && (
+              <AgentPanel chat={chat} setChat={setChat} context={agentContext} onAction={onAgentAction} hasSelection={!!selection} seed={askSeed} clearSeed={() => setAskSeed(null)} />
             )}
             {panel === 'appraise' && <AppraisalPanel sites={sites} siteId={appraiseId} setSiteId={setAppraiseId} toast={toast} />}
           </>
@@ -276,7 +323,7 @@ export default function App() {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3>Keyboard shortcuts</h3>
             <dl className="keys">
-              {[['/', 'Search'], ['D', 'Draw a site boundary'], ['M', 'Measure distance'], ['L', 'Layers'], ['S', 'Source land'], ['A', 'Appraisal'], ['P', 'Pipeline board'], ['B', 'Cycle base map'], ['Enter', 'Finish drawing'], ['Backspace', 'Undo last point'], ['Esc', 'Cancel / close'], ['?', 'This help']].map(([k, v]) => (
+              {[['/', 'Search'], ['D', 'Draw a site boundary'], ['M', 'Measure distance'], ['L', 'Layers'], ['S', 'Source land'], ['A', 'Appraisal'], ['I', 'AI assistant'], ['P', 'Pipeline board'], ['B', 'Cycle base map'], ['Enter', 'Finish drawing'], ['Backspace', 'Undo last point'], ['Esc', 'Cancel / close'], ['?', 'This help']].map(([k, v]) => (
                 <div key={k}><dt><kbd>{k}</kbd></dt><dd>{v}</dd></div>
               ))}
             </dl>

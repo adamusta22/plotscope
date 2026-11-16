@@ -7,10 +7,11 @@ Rename it by changing `APP_NAME` in `src/App.tsx` and the `<title>` in `index.ht
 
 ```bash
 npm install
+cp .env.example .env   # then put your Anthropic API key in .env
 npm run dev
 ```
 
-Then open http://localhost:5173.
+Then open http://localhost:5173. `npm run dev` starts both the web app and the small API server (port 8787) that runs the AI assistant. Everything except the assistant works without a key.
 
 ## Features
 
@@ -22,8 +23,10 @@ Then open http://localhost:5173.
 - **Source land**: scans the councils' brownfield land registers for the area on screen. Filter by size, dwellings, permission status and ownership, then export to CSV or add sites to the pipeline in one click.
 - **Development appraisal**: residual land value with SDLT and acquisition costs, £/acre, £/plot, profit on cost, affordable housing, a density-to-units helper, a 5×5 sensitivity grid, and headroom against the asking price.
 - **Pipeline CRM**: drag-and-drop kanban across 7 stages, plus a table view, search, tags, owner and asking price, notes, an activity log, and CSV/GeoJSON export and GeoJSON import.
+- **Planning policy (new)**: every site report has a Policy tab. It lists the NPPF 2026 topics triggered by the site's designations, with the tests, the evidence needed and links to guidance. It also shows the council's local plan, SPDs and neighbourhood plans from the national development-plan datasets, plus quick links to the policies map, housing land supply statement and CIL schedule.
+- **AI planning assistant (new)**: press `I`, or "Assess with AI" on any site. It runs on Claude and can check constraints, read the NPPF, find and read the council's local plan and SPDs on the web, search brownfield registers, pull sold prices, run appraisals, and drive the map: fly to places, switch layers on, show results and save sites. It cites sources and won't invent policy references. The code is in `server/agent.ts`.
 - **Tools**: draw a site (with live ha/acres/sq ft), measure distance, undo points, print a site report to PDF.
-- **Keyboard shortcuts**: `/` search, `D` draw, `M` measure, `L` layers, `S` source, `A` appraise, `P` pipeline, `B` base map, `?` help.
+- **Keyboard shortcuts**: `/` search, `D` draw, `M` measure, `L` layers, `S` source, `A` appraise, `P` pipeline, `I` assistant, `B` base map, `?` help.
 - Works on phones and supports dark mode.
 
 ## Data sources (all free, Open Government Licence or ODbL)
@@ -44,3 +47,7 @@ Then open http://localhost:5173.
 - EPC data (free API key from the EPC register)
 
 Pipeline data is currently saved in the browser (localStorage). The next step for a multi-user product is a backend with accounts and shared pipelines.
+
+## Docs
+
+- [How Searchland works: a function-by-function assessment and roadmap](docs/SEARCHLAND-ASSESSMENT.md)
