@@ -94,7 +94,7 @@ export function MapView(props: Props) {
       // HM Land Registry title plot outlines (raster WMS via the /lr proxy), below all overlays
       parcelLayer().then((layer) => {
         if (!map.current || m.getSource('plots')) return;
-        m.addSource('plots', { type: 'raster', tiles: [parcelTileUrl(layer)], tileSize: 512, minzoom: 15, attribution: 'Title extents © Crown copyright, HM Land Registry' });
+        m.addSource('plots', { type: 'raster', tiles: [parcelTileUrl(layer)], tileSize: 1024, minzoom: 15, attribution: 'Title extents © Crown copyright, HM Land Registry' });
         const before = m.getStyle().layers.find((l) => l.id.startsWith('ds-'))?.id;
         m.addLayer({ id: 'plots', type: 'raster', source: 'plots', minzoom: 15, paint: { 'raster-opacity': 0.75, 'raster-fade-duration': 200 } }, before);
         syncPlots();
