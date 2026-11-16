@@ -64,7 +64,7 @@ export function AgentPanel({ chat, setChat, context, onAction, hasSelection, see
         body: JSON.stringify({ messages: history, context: context() }),
         signal: ac.current.signal,
       });
-      if (!r.ok || !r.body) throw new Error(r.status === 404 || r.status === 502 || r.status === 504 ? 'The Plotscope API server is not running. Start it with `npm run dev`.' : `Request failed (${r.status})`);
+      if (!r.ok || !r.body) throw new Error(r.status === 429 ? 'You have hit the hourly AI limit. Try again later.' : r.status === 404 || r.status === 502 || r.status === 504 ? 'The Plotscope API server is not running. Start it with `npm run dev`.' : `Request failed (${r.status})`);
       const reader = r.body.getReader();
       const dec = new TextDecoder();
       let buf = '';

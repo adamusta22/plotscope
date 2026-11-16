@@ -51,3 +51,16 @@ Pipeline data is currently saved in the browser (localStorage). The next step fo
 ## Docs
 
 - [How Searchland works: a function-by-function assessment and roadmap](docs/SEARCHLAND-ASSESSMENT.md)
+
+## Deploy
+
+Plotscope runs as a single Node service: `npm run build` then `npm start`. The server delivers the web app and the API on `PORT`.
+
+| Setting | Purpose |
+|---|---|
+| `ANTHROPIC_API_KEY` | Turns on the AI assistant (required for AI) |
+| `APP_PASSWORD` | Password-protects the whole site. Leave it empty to make the site public |
+| `AGENT_REQUESTS_PER_HOUR` | Caps AI questions per visitor per hour (default 30) to limit spend |
+
+- **Render:** New → Blueprint → choose this repo (`render.yaml` is included), then fill in the settings.
+- **Railway / Fly.io / Cloud Run:** use the included `Dockerfile`.
