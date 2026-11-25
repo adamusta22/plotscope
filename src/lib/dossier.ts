@@ -494,7 +494,7 @@ function matches(kind: string, t: any) {
   return false;
 }
 
-function capacityScenarios(netArea: number, ctxLevels: number | undefined, urban: boolean): Scenario[] {
+export function capacityScenarios(netArea: number, ctxLevels: number | undefined, urban: boolean): Scenario[] {
   const ha = netArea / 10000;
   const ctx = Math.max(2, Math.round(ctxLevels ?? (urban ? 3 : 2)));
   const out: Scenario[] = [];
@@ -513,7 +513,7 @@ function capacityScenarios(netArea: number, ctxLevels: number | undefined, urban
   return out;
 }
 
-function surveyList(o: { has: (d: string) => boolean; areaM2: number; buildings: number; nearbyHeritage: number; roads: Road[]; units: number; contextLevels?: number }): Survey[] {
+export function surveyList(o: { has: (d: string) => boolean; areaM2: number; buildings: number; nearbyHeritage: number; roads: Road[]; units: number; contextLevels?: number }): Survey[] {
   const s: Survey[] = [
     { name: 'Topographical & measured survey', why: 'Levels, boundaries, trees and features for design and the title-plan check.', when: 'Before purchase', priority: 'Essential' },
     { name: 'Title & legal review', why: 'The Land Registry outline is indicative; confirm title, rights of way, covenants and access.', when: 'Before purchase', priority: 'Essential' },
@@ -537,7 +537,7 @@ function surveyList(o: { has: (d: string) => boolean; areaM2: number; buildings:
   return s.sort((a, b) => rank[a.when] - rank[b.when]);
 }
 
-function summarise(o: { osmOk: boolean; servicesOk: boolean; constraints: Constraint[]; floodZone: string; nearbyHeritage: any[]; brownfield: any; frontage: Frontage[]; walkScore: number; amenities: Record<string, Amenity>; dims: Dossier['dims']; areaM2: number; score: number; lpa?: string }): Finding[] {
+export function summarise(o: { osmOk: boolean; servicesOk: boolean; constraints: Constraint[]; floodZone: string; nearbyHeritage: any[]; brownfield: any; frontage: Frontage[]; walkScore: number; amenities: Record<string, Amenity>; dims: Dossier['dims']; areaM2: number; score: number; lpa?: string }): Finding[] {
   const f: Finding[] = [];
   const high = o.constraints.filter((c) => c.severity === 'high');
   const med = o.constraints.filter((c) => c.severity === 'medium');
