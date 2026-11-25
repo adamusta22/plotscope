@@ -11,6 +11,8 @@ import { AppraisalPanel } from './components/AppraisalPanel';
 import { PipelineBoard } from './components/PipelineBoard';
 import { Icon } from './components/Icon';
 import { AgentPanel, ChatMsg } from './components/AgentPanel';
+import { DossierView } from './components/DossierView';
+import type { DossierInput } from './lib/dossier';
 import type { AgentAction, AgentContext } from './lib/agentTypes';
 import { BasemapId, DATASET_BY_ID } from './lib/datasets';
 import { Place, squareAround } from './lib/api';
@@ -39,6 +41,7 @@ export default function App() {
   const [appraiseId, setAppraiseId] = useState<string>();
   const [toasts, setToasts] = useState<{ id: number; text: string }[]>([]);
   const [help, setHelp] = useState(false);
+  const [dossierInput, setDossierInput] = useState<DossierInput | null>(null);
   const [showPlots, setShowPlots] = usePref('plots', true);
   const [pending, setPending] = useState<[number, number] | null>(null);
   const plotAbort = useRef<AbortController>();
@@ -264,6 +267,7 @@ export default function App() {
                   onDrawBoundary={() => setDrawMode('polygon')}
                   onAppraise={(id) => { setAppraiseId(id); setPanel('appraise'); }}
                   onAsk={ask}
+                  onDossier={(d) => setDossierInput(d)}
                   onSaved={(s) => setSelection({ kind: 'area', geometry: s.geometry as Polygon, siteId: s.id })}
                   onHighlight={setHighlight}
                   onFly={(g) => fly(g)}
@@ -372,6 +376,8 @@ export default function App() {
           {toasts.map((t) => <div key={t.id} className="toast"><Icon name="check" size={16} />{t.text}</div>)}
         </div>
       </main>
+
+      {dossierInput && <DossierView input={dossierInput} onClose={() => setDossierInput(null)} onAsk={(q) => { setDossierInput(null); ask(q); }} />}
 
       {board && <PipelineBoard sites={sites} onOpen={openSite} onClose={() => setBoard(false)} toast={toast} />}
 

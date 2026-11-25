@@ -21,6 +21,7 @@ interface Props {
   onAppraise: (siteId: string) => void;
   onSaved: (s: Site) => void;
   onAsk: (q: string) => void;
+  onDossier: (input: { geometry: Polygon | MultiPolygon; name?: string; source: 'hmlr' | 'osm' | 'drawn' | 'saved' }) => void;
   onHighlight: (f: Feature | null) => void;
   onFly: (g: Geometry) => void;
   toast: (t: string) => void;
@@ -28,7 +29,7 @@ interface Props {
 
 interface Hit { dataset: string; features: Feature[]; coverage?: number }
 
-export function ReportPanel({ selection, site, onClose, onDrawBoundary, onAppraise, onSaved, onAsk, onHighlight, onFly, toast }: Props) {
+export function ReportPanel({ selection, site, onClose, onDrawBoundary, onAppraise, onSaved, onAsk, onDossier, onHighlight, onFly, toast }: Props) {
   const geom: Geometry = selection.kind === 'area' ? selection.geometry : { type: 'Point', coordinates: [selection.lng, selection.lat] };
   const center = useMemo(() => turf.centroid(geom as any).geometry.coordinates, [JSON.stringify(geom)]);
   const areaM2 = selection.kind === 'area' ? turf.area(selection.geometry) : 0;
@@ -194,6 +195,14 @@ export function ReportPanel({ selection, site, onClose, onDrawBoundary, onApprai
           <div className="stat wide"><b>{hits ? hits.length : '–'}</b><span>designations at this point</span></div>
         )}
       </div>
+
+      {selection.kind === 'area' ? (
+        <button className="btn primary dossier-cta" onClick={() => onDossier({ geometry: selection.geometry, name: site?.name, source: site ? 'saved' : plot ? plot.source : 'drawn' })}>
+          <Icon name="report" size={17} /> Open full site dossier
+        </button>
+      ) : (
+        <p className="muted small" style={{ margin: '0 0 12px' }}>Click a plot or draw a boundary to get the full site dossier.</p>
+      )}
 
       <div className="actions">
         {selection.kind === 'area' && !site && <button className="btn primary" onClick={save}><Icon name="plus" size={16} />Save to pipeline</button>}
