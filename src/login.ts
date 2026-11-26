@@ -20,12 +20,14 @@ function setMode(m: Mode) {
   $('login-fields').hidden = m === 'change';
   $('change-fields').hidden = m !== 'change';
   $('footer').hidden = m !== 'login';
-  $('heading').textContent = m === 'setup' ? 'Set up Plotscope' : m === 'change' ? 'Choose a new password' : 'Sign in';
+  $('heading').textContent = m === 'setup' ? 'Set up Plotscope' : m === 'change' ? 'Choose your password' : 'Sign in';
+  $('eyebrow').textContent = m === 'setup' ? 'First-time setup' : m === 'change' ? 'One more step' : 'Welcome back';
+  $('pw-meter').hidden = m !== 'setup';
   $('intro').textContent =
-    m === 'setup' ? 'Create the first administrator account. You will need the one-time setup code.' :
-    m === 'change' ? 'Your password was set by an administrator. Choose your own to continue.' :
+    m === 'setup' ? 'Create the administrator account for your team. You can invite everyone else once you are in.' :
+    m === 'change' ? 'You signed in with a temporary password. Choose your own to continue.' :
     'Use the email and password your administrator gave you.';
-  submit.textContent = m === 'setup' ? 'Create account' : m === 'change' ? 'Save and continue' : 'Sign in';
+  $('submit-label').textContent = m === 'setup' ? 'Create administrator account' : m === 'change' ? 'Save and continue' : 'Sign in';
   ($<HTMLInputElement>('password')).autocomplete = m === 'setup' ? 'new-password' : 'current-password';
   (m === 'setup' ? $<HTMLInputElement>('code') : m === 'change' ? $<HTMLInputElement>('newpw') : $<HTMLInputElement>('email')).focus();
 }
@@ -71,11 +73,33 @@ form.addEventListener('submit', async (e) => {
   }
 });
 
+/** Live password strength: mirrors the server's rule (10+ chars, letters plus numbers or symbols). */
+function meter(input: string, bar: string, len: string, mix: string) {
+  const el = $<HTMLInputElement>(input);
+  const update = () => {
+    const v = el.value;
+    const longEnough = v.length >= 10;
+    const mixed = /[a-zA-Z]/.test(v) && /[^a-zA-Z]/.test(v);
+    $(len).classList.toggle('ok', longEnough);
+    $(mix).classList.toggle('ok', mixed);
+    let score = Math.min(v.length / 16, 1) * 0.6 + (mixed ? 0.25 : 0) + (/[^a-zA-Z0-9]/.test(v) && /\d/.test(v) ? 0.15 : 0);
+    if (!longEnough || !mixed) score = Math.min(score, 0.45);
+    const b = $(bar);
+    b.style.width = `${Math.max(v ? 8 : 0, score * 100)}%`;
+    b.style.background = score < 0.46 ? 'var(--bad)' : score < 0.75 ? 'var(--warn)' : 'var(--good)';
+  };
+  el.addEventListener('input', update);
+  update();
+}
+meter('password', 'pw-bar', 'rule-len', 'rule-mix');
+meter('newpw', 'newpw-bar', 'newrule-len', 'newrule-mix');
+
 document.querySelectorAll<HTMLButtonElement>('.show').forEach((b) =>
   b.addEventListener('click', () => {
     const input = $<HTMLInputElement>(b.dataset.for!);
     input.type = input.type === 'password' ? 'text' : 'password';
     b.textContent = input.type === 'password' ? 'Show' : 'Hide';
+    b.setAttribute('aria-label', input.type === 'password' ? 'Show password' : 'Hide password');
   }),
 );
 
