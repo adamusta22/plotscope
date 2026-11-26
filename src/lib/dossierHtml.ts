@@ -248,9 +248,6 @@ export function dossierHtml(d: Dossier, opts: HtmlOptions): string {
 
   const docHead = `<title>${esc(d.name)}</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>${CSS}</style>`;
 
   if (!opts.standalone) return `${docHead}\n${body}`;
@@ -427,9 +424,9 @@ const CSS = `
   --good: #15803d; --warn: #b45309; --bad: #b91c1c;
   --ground: #eef1f6; --bldg: #c9d0de; --bldg-on: #3d6aa8; --road: #ffffff; --road-edge: #c7cedc;
   --sun-s: #d97706; --sun-e: #0d9488; --sun-w: #2563eb;
-  --f-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
-  --f-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --f-display: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --f-body: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --f-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {

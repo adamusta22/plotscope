@@ -37,7 +37,7 @@
 
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
-body { font-family: Inter, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 14px; color: var(--text); background: var(--bg); -webkit-font-smoothing: antialiased; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 14px; color: var(--text); background: var(--bg); -webkit-font-smoothing: antialiased; }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; border: 0; background: none; padding: 0; }
 a { color: var(--accent); text-decoration: none; }
@@ -157,7 +157,7 @@ label.check { display: flex; align-items: center; gap: 8px; color: var(--text); 
 .maplibregl-ctrl-scale { border-radius: 4px; }
 .hover-pop .maplibregl-popup-content { padding: 8px 11px; border-radius: 10px; box-shadow: var(--shadow); background: var(--surface); color: var(--text); }
 .hover-pop .maplibregl-popup-tip { display: none; }
-.hp { display: flex; gap: 9px; align-items: flex-start; font-family: Inter, system-ui, sans-serif; }
+.hp { display: flex; gap: 9px; align-items: flex-start; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, "Helvetica Neue", Arial, sans-serif; }
 .hp i { width: 10px; height: 10px; border-radius: 3px; margin-top: 4px; flex-shrink: 0; }
 .hp b { display: block; font-size: 13px; }
 .hp span { font-size: 11.5px; color: var(--muted); }
