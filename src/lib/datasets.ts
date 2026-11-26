@@ -51,10 +51,16 @@ export const CONSTRAINT_IDS = DATASETS.filter((d) => d.group !== 'Boundaries').m
 
 export const SEVERITY_WEIGHT: Record<Severity, number> = { high: 30, medium: 12, low: 4, info: 0 };
 
+// CARTO basemap tiles need a key (free tier) since September 2026.
+// Set VITE_CARTO_KEY at build time (Netlify environment variable, or .env locally).
+const CARTO_KEY = (import.meta as any).env?.VITE_CARTO_KEY as string | undefined;
+export const cartoTiles = (path: string) =>
+  ['a', 'b', 'c'].map((s) => `https://${s}.basemaps.cartocdn.com/${path}/{z}/{x}/{y}@2x.png${CARTO_KEY ? `?key=${encodeURIComponent(CARTO_KEY)}` : ''}`);
+
 export const BASEMAPS = [
-  { id: 'streets', name: 'Streets', tiles: ['a', 'b', 'c'].map((s) => `https://${s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png`), attribution: '© OpenStreetMap contributors © CARTO' },
-  { id: 'light', name: 'Light', tiles: ['a', 'b', 'c'].map((s) => `https://${s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png`), attribution: '© OpenStreetMap contributors © CARTO' },
-  { id: 'dark', name: 'Dark', tiles: ['a', 'b', 'c'].map((s) => `https://${s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png`), attribution: '© OpenStreetMap contributors © CARTO' },
+  { id: 'streets', name: 'Streets', tiles: cartoTiles('rastertiles/voyager'), attribution: '© OpenStreetMap contributors © CARTO' },
+  { id: 'light', name: 'Light', tiles: cartoTiles('light_all'), attribution: '© OpenStreetMap contributors © CARTO' },
+  { id: 'dark', name: 'Dark', tiles: cartoTiles('dark_all'), attribution: '© OpenStreetMap contributors © CARTO' },
   { id: 'satellite', name: 'Satellite', tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'], attribution: 'Imagery © Esri, Maxar, Earthstar Geographics' },
   { id: 'osm', name: 'OSM', tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], attribution: '© OpenStreetMap contributors' },
 ] as const;

@@ -3,7 +3,7 @@ import maplibregl, { Map as MLMap, GeoJSONSource, MapMouseEvent } from 'maplibre
 import 'maplibre-gl/dist/maplibre-gl.css';
 import * as turf from '@turf/turf';
 import type { Feature, FeatureCollection, Geometry } from 'geojson';
-import { BASEMAPS, BasemapId, DATASETS, DATASET_BY_ID } from '../lib/datasets';
+import { BASEMAPS, BasemapId, cartoTiles, DATASETS, DATASET_BY_ID } from '../lib/datasets';
 import { bboxWKT, fetchEntities, prop } from '../lib/api';
 import { Site, STAGE_COLORS } from '../lib/store';
 import { parcelLayer, parcelTileUrl } from '../lib/parcels';
@@ -67,7 +67,7 @@ export function MapView(props: Props) {
       sources['bm-' + b.id] = { type: 'raster', tiles: [...b.tiles], tileSize: 256, attribution: b.attribution, maxzoom: 19 };
       layers.push({ id: 'bm-' + b.id, type: 'raster', source: 'bm-' + b.id, layout: { visibility: b.id === props.basemap ? 'visible' : 'none' } });
     }
-    sources['bm-labels'] = { type: 'raster', tiles: ['a', 'b', 'c'].map((s) => `https://${s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}@2x.png`), tileSize: 256 };
+    sources['bm-labels'] = { type: 'raster', tiles: cartoTiles('dark_only_labels'), tileSize: 256 };
     layers.push({ id: 'bm-labels', type: 'raster', source: 'bm-labels', layout: { visibility: props.basemap === 'satellite' ? 'visible' : 'none' } });
 
     // Restore the view from the URL (#map=zoom/lat/lng[/bearing/pitch]) so links and reloads keep their place
