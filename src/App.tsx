@@ -12,6 +12,7 @@ import { PipelineBoard } from './components/PipelineBoard';
 import { Icon } from './components/Icon';
 import { AgentPanel, ChatMsg } from './components/AgentPanel';
 import { DossierView } from './components/DossierView';
+import { AccountMenu, initials, Me, PasswordDialog, TeamPanel } from './components/Account';
 import type { DossierInput } from './lib/dossier';
 import type { AgentAction, AgentContext } from './lib/agentTypes';
 import { BasemapId, DATASET_BY_ID } from './lib/datasets';
@@ -42,6 +43,21 @@ export default function App() {
   const [toasts, setToasts] = useState<{ id: number; text: string }[]>([]);
   const [help, setHelp] = useState(false);
   const [dossierInput, setDossierInput] = useState<DossierInput | null>(null);
+  const [me, setMe] = useState<Me | null>(null);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [teamOpen, setTeamOpen] = useState(false);
+  const [pwOpen, setPwOpen] = useState(false);
+  useEffect(() => {
+    fetch('/api/auth/status', { credentials: 'same-origin' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((s) => {
+        if (!s || s.enabled === false) return;
+        if (!s.user) return location.replace(`/login?next=${encodeURIComponent(location.pathname + location.search)}`);
+        setMe(s.user);
+        if (s.user.mustChangePassword) setPwOpen(true);
+      })
+      .catch(() => {});
+  }, []);
   const [showPlots, setShowPlots] = usePref('plots', true);
   const [pending, setPending] = useState<[number, number] | null>(null);
   const plotAbort = useRef<AbortController>();
@@ -246,6 +262,12 @@ export default function App() {
           );
         })}
         <div className="rail-spacer" />
+        {me && (
+          <button className={'rail-btn account-btn' + (accountOpen ? ' on' : '')} onClick={() => setAccountOpen(!accountOpen)} title={`${me.name || me.email} · account`}>
+            <span className="avatar">{initials(me)}</span>
+            <span>Account</span>
+          </button>
+        )}
         <button className="rail-btn" onClick={() => setHelp(true)} title="Keyboard shortcuts (?)"><Icon name="keyboard" size={20} /><span>Keys</span></button>
       </nav>
 
@@ -376,6 +398,10 @@ export default function App() {
           {toasts.map((t) => <div key={t.id} className="toast"><Icon name="check" size={16} />{t.text}</div>)}
         </div>
       </main>
+
+      {accountOpen && me && <AccountMenu me={me} onClose={() => setAccountOpen(false)} onTeam={() => { setAccountOpen(false); setTeamOpen(true); }} onPassword={() => { setAccountOpen(false); setPwOpen(true); }} />}
+      {teamOpen && me && <TeamPanel me={me} onClose={() => setTeamOpen(false)} toast={toast} />}
+      {pwOpen && <PasswordDialog onClose={() => setPwOpen(false)} toast={toast} />}
 
       {dossierInput && <DossierView input={dossierInput} onClose={() => setDossierInput(null)} onAsk={(q) => { setDossierInput(null); ask(q); }} />}
 

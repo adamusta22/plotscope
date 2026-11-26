@@ -49,6 +49,14 @@ Then open http://localhost:5173. `npm run dev` starts both the web app and the s
 
 Pipeline data is currently saved in the browser (localStorage). The next step for a multi-user product is a backend with accounts and shared pipelines.
 
+## Sign-in and team accounts
+
+When `SESSION_SECRET` is set, every page, the API and the AI assistant need a signed-in account:
+- The first visit to `/login` asks for `SETUP_CODE` and creates the first administrator.
+- Administrators add people under **Account → Team & access**. New people get a temporary password and choose their own the first time they sign in.
+- Sessions last 7 days. Removing someone blocks their access straight away.
+- Accounts are stored in Netlify Blobs (`plotscope-users` store), or locally in `.data/users.json`. Passwords are hashed with scrypt.
+
 ## Docs
 
 - [How Searchland works: a function-by-function assessment and roadmap](docs/SEARCHLAND-ASSESSMENT.md)
@@ -66,7 +74,8 @@ The repo is set up for Netlify (`netlify.toml`):
 | Variable | Purpose |
 |---|---|
 | `ANTHROPIC_API_KEY` | Turns on the AI assistant (required for AI) |
-| `APP_PASSWORD` | Password-protects the whole site (any username). Leave unset for a public site |
+| `SESSION_SECRET` | Turns on sign-in. Any long random string (40+ characters). Everyone then needs an account |
+| `SETUP_CODE` | One-time code for creating the first administrator at `/login`. Stops working once an account exists |
 | `AGENT_REQUESTS_PER_HOUR` | Best-effort cap on AI questions per visitor per hour (default 30) |
 | `PLOTSCOPE_EFFORT` | AI reasoning depth: `low`, `medium` (default) or `high`. Higher is slower and costs more |
 

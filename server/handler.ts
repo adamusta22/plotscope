@@ -6,6 +6,7 @@ import { runAgentStep } from './agent';
 import { pricePaid } from '../src/lib/api';
 import { localPlanFor } from '../src/lib/localplan';
 import type { AgentEvent } from '../src/lib/agentTypes';
+import { authEnabled, currentUser, handleAuth } from './auth';
 
 const env = (k: string) => (typeof process !== 'undefined' ? process.env[k] : undefined);
 const MAX_BODY = 5_000_000;
@@ -43,6 +44,11 @@ export async function handle(req: Request, clientIp = 'unknown'): Promise<Respon
     if (url.pathname === '/api/health') {
       return json(200, { ok: true, ai: Boolean(env('ANTHROPIC_API_KEY') || env('ANTHROPIC_AUTH_TOKEN')) });
     }
+
+    const auth = await handleAuth(req, clientIp);
+    if (auth) return auth;
+    // Everything else needs a signed-in account (when sign-in is switched on)
+    if (authEnabled() && !(await currentUser(req))) return json(401, { error: 'Please sign in.' });
 
     if (url.pathname === '/api/price-paid') {
       const pcs = (url.searchParams.get('postcodes') || '').split(',').map((s) => s.trim()).filter(Boolean).slice(0, 40);

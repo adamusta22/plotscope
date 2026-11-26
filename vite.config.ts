@@ -15,6 +15,7 @@ const proxy = {
 
 export default defineConfig({
   plugins: [react()],
+  build: { rollupOptions: { input: { main: 'index.html', login: 'login.html' } } },
   server: { proxy },
   preview: { proxy },
 });

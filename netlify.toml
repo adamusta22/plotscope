@@ -8,6 +8,12 @@
 [functions]
   node_bundler = "esbuild"
 
+# Sign-in page
+[[redirects]]
+  from = "/login"
+  to = "/login.html"
+  status = 200
+
 # Same-origin proxy to HM Land Registry's INSPIRE plot boundaries service
 [[redirects]]
   from = "/lr/*"

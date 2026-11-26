@@ -3,7 +3,6 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
-import crypto from 'node:crypto';
 import { Readable } from 'node:stream';
 
 // Load ANTHROPIC_API_KEY etc. from .env if present (Node 21.7+)
@@ -13,7 +12,6 @@ const { handle } = await import('./handler');
 
 const PORT = Number(process.env.PORT || 8787);
 const DIST = path.resolve(process.cwd(), 'dist');
-const APP_PASSWORD = process.env.APP_PASSWORD || '';
 
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml',
@@ -32,23 +30,28 @@ function serveStatic(pathname: string, res: http.ServerResponse) {
   fs.createReadStream(file).pipe(res);
 }
 
-function authorised(req: http.IncomingMessage) {
-  if (!APP_PASSWORD) return true;
-  const h = req.headers.authorization || '';
-  if (!h.startsWith('Basic ')) return false;
-  const pass = Buffer.from(h.slice(6), 'base64').toString().split(':').slice(1).join(':');
-  const a = Buffer.from(pass), b = Buffer.from(APP_PASSWORD);
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
+const { isPublicPath, readCookie, verifySession } = await import('./session');
+
+/** Same front-door rule as the Netlify edge function (netlify/edge-functions/auth.ts). */
+async function signedIn(req: http.IncomingMessage) {
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) return true;
+  return !!(await verifySession(readCookie(req.headers.cookie), secret));
 }
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url || '/', `http://localhost:${PORT}`);
-  if (!authorised(req)) {
-    res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="Plotscope", charset="UTF-8"' });
-    return res.end('Password required');
+  const open = isPublicPath(url.pathname) || url.pathname.startsWith('/assets/');
+  if (!open && !(await signedIn(req))) {
+    if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/lr/')) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Please sign in.' }));
+    }
+    res.writeHead(302, { Location: `/login${url.pathname === '/' ? '' : `?next=${encodeURIComponent(url.pathname + url.search)}`}` });
+    return res.end();
   }
   if (!url.pathname.startsWith('/api/')) {
-    if (req.method === 'GET' || req.method === 'HEAD') return serveStatic(url.pathname, res);
+    if (req.method === 'GET' || req.method === 'HEAD') return serveStatic(url.pathname === '/login' ? '/login.html' : url.pathname, res);
     res.writeHead(405);
     return res.end();
   }

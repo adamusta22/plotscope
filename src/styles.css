@@ -599,3 +599,32 @@ body { letter-spacing: -0.005em; }
 .dl-progress i { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width 0.4s var(--ease); }
 .btn.dossier-cta { width: 100%; justify-content: center; height: 44px; font-size: 14px; }
 @media (max-width: 760px) { .dossier-overlay { inset: 0 0 64px 0; } }
+
+/* ---------- account & team ---------- */
+.avatar { width: 30px; height: 30px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 11.5px; font-weight: 700; color: #fff; background: linear-gradient(135deg, var(--accent), var(--accent-2)); flex-shrink: 0; letter-spacing: 0.02em; }
+.avatar.lg { width: 40px; height: 40px; font-size: 14px; }
+.account-btn .avatar { width: 28px; height: 28px; font-size: 11px; }
+.menu-backdrop { position: fixed; inset: 0; z-index: 44; }
+.account-menu { position: fixed; left: calc(var(--rail-w) + 10px); bottom: 14px; z-index: 45; width: 270px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-lg); padding: 8px; animation: pop2 0.25s var(--ease); }
+.am-head { display: flex; gap: 10px; align-items: center; padding: 8px 8px 12px; border-bottom: 1px solid var(--border); margin-bottom: 6px; }
+.am-head b { display: block; font-size: 14px; }
+.am-head span { font-size: 12px; color: var(--muted); }
+.account-menu button[role='menuitem'] { width: 100%; display: flex; gap: 10px; align-items: center; padding: 10px; border-radius: 10px; font-weight: 500; text-align: left; color: var(--text); }
+.account-menu button[role='menuitem']:hover, .account-menu button[role='menuitem']:focus-visible { background: var(--surface-2); outline: none; }
+.account-menu button.danger { color: var(--bad); }
+.team .team-body { flex: 1; overflow: auto; display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); gap: 24px; padding: 20px 24px; align-items: start; }
+.team h3 { font-size: 15px; margin-bottom: 12px; }
+.team-add { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px; }
+.team-add .row .input { flex: 1; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.issued { margin-top: 16px; padding: 14px; border-radius: 12px; background: var(--accent-soft); display: flex; flex-direction: column; gap: 8px; }
+.issued code { white-space: pre-wrap; font-size: 12.5px; background: var(--surface); padding: 10px; border-radius: 8px; border: 1px solid var(--border); }
+.issued .btn { align-self: flex-start; }
+.team-list ul { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; }
+.team-list li { display: flex; gap: 12px; align-items: center; padding: 12px 16px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+.team-list li:first-child { border-top: 0; }
+.team-list .who { flex: 1; min-width: 180px; }
+.team-list .who b { display: flex; gap: 8px; align-items: center; font-size: 14px; }
+.team-list .who span { font-size: 12.5px; color: var(--muted); }
+.team-list select.input.sm { width: auto; }
+@media (max-width: 860px) { .team .team-body { grid-template-columns: 1fr; padding: 16px; } .account-menu { left: 10px; bottom: 74px; } }
