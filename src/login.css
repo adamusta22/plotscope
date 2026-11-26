@@ -1,19 +1,19 @@
 :root {
   --bg: #eef1f6; --card: #ffffff; --ink: #0f172a; --muted: #64748b; --rule: #e2e7f0;
-  --accent: #4f46e5; --accent-2: #7c3aed; --bad: #dc2626; --field: #ffffff;
+  --accent: #1b3a6b; --accent-2: #2a5490; --bad: #dc2626; --field: #ffffff;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
-  :root { --bg: #070a14; --card: #111627; --ink: #e6e9f5; --muted: #8b93b4; --rule: #252c46; --accent: #818cf8; --accent-2: #a78bfa; --bad: #f87171; --field: #0c1120; color-scheme: dark; }
+  :root { --bg: #070a14; --card: #111627; --ink: #e6e9f5; --muted: #8b93b4; --rule: #252c46; --accent: #8fb3e3; --accent-2: #6b96cf; --bad: #f87171; --field: #0c1120; color-scheme: dark; }
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
 body { font: 15px/1.5 Inter, system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--ink); background: var(--bg); -webkit-font-smoothing: antialiased; }
 .login { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); min-height: 100%; }
 
-.brand { position: relative; overflow: hidden; color: #fff; background: linear-gradient(160deg, #312e81, #4f46e5 55%, #7c3aed); display: flex; align-items: flex-end; padding: 48px max(32px, env(safe-area-inset-left, 0px)); }
+.brand { position: relative; overflow: hidden; color: #fff; background: linear-gradient(160deg, #07142a, #12305a 55%, #1f4a85); display: flex; align-items: flex-end; padding: 48px max(32px, env(safe-area-inset-left, 0px)); }
 .plots { position: absolute; inset: 0; width: 100%; height: 100%; color: rgba(255, 255, 255, 0.22); }
-.plots .hi { fill: rgba(255, 255, 255, 0.14); stroke: #fff; stroke-width: 2.5; stroke-dasharray: 8 6; animation: march 1.4s linear infinite; }
+.plots .hi { fill: rgba(255, 255, 255, 0.14); stroke: #fff; stroke-width: 2.5; stroke-dasharray: 8 6; }
 @keyframes march { to { stroke-dashoffset: -28; } }
 @media (prefers-reduced-motion: reduce) { .plots .hi { animation: none; } }
 .brand-copy { position: relative; max-width: 380px; }

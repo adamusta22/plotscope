@@ -5,7 +5,7 @@ export const STAGES = ['Prospect', 'Researching', 'Approached', 'Negotiating', '
 export type Stage = (typeof STAGES)[number];
 
 export const STAGE_COLORS: Record<Stage, string> = {
-  Prospect: '#748ffc', Researching: '#4dabf7', Approached: '#3bc9db', Negotiating: '#fcc419',
+  Prospect: '#5b7fb5', Researching: '#4dabf7', Approached: '#3bc9db', Negotiating: '#fcc419',
   'Under offer': '#ff922b', Acquired: '#51cf66', Dead: '#868e96',
 };
 

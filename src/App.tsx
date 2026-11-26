@@ -244,7 +244,7 @@ export default function App() {
     <div className={'app' + (panel ? ' has-panel' : '')}>
       <nav className="rail">
         <div className="logo" title={APP_NAME}>
-          <svg viewBox="0 0 32 32" width="30" height="30"><defs><linearGradient id="logoGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#6366f1" /><stop offset="1" stopColor="#8b5cf6" /></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#logoGrad)" /><path d="M8 22 13 9l6 4 5 9z" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinejoin="round" /><circle cx="13" cy="9" r="2.2" fill="#fff" /></svg>
+          <svg viewBox="0 0 32 32" width="30" height="30"><defs><linearGradient id="logoGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#1b3a6b" /><stop offset="1" stopColor="#2f5c9c" /></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#logoGrad)" /><path d="M8 22 13 9l6 4 5 9z" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinejoin="round" /><circle cx="13" cy="9" r="2.2" fill="#fff" /></svg>
         </div>
         {NAV.map((n) => {
           const on = n.id === 'pipeline' ? board : panel === n.id && !board;

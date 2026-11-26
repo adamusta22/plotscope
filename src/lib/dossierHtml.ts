@@ -423,9 +423,9 @@ const CSS = `
 /* Layout: an architect's drawing sheet: title block band, sticky section index, single reading column with wide figures. */
 :root {
   --paper: #f5f7fb; --paper-2: #eaeef6; --card: #ffffff; --ink: #121a2e; --ink-2: #44506a; --muted: #6b7690;
-  --rule: #d9dfeb; --accent: #4338ca; --accent-soft: #e7e8fb; --constraint: #c2410c;
+  --rule: #d9dfeb; --accent: #1b3a6b; --accent-soft: #e6edf7; --constraint: #c2410c;
   --good: #15803d; --warn: #b45309; --bad: #b91c1c;
-  --ground: #eef1f6; --bldg: #c9d0de; --bldg-on: #6d64d8; --road: #ffffff; --road-edge: #c7cedc;
+  --ground: #eef1f6; --bldg: #c9d0de; --bldg-on: #3d6aa8; --road: #ffffff; --road-edge: #c7cedc;
   --sun-s: #d97706; --sun-e: #0d9488; --sun-w: #2563eb;
   --f-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
   --f-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -434,15 +434,15 @@ const CSS = `
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --paper: #0d1220; --paper-2: #141b2d; --card: #121929; --ink: #e8ecf6; --ink-2: #b4bdd3; --muted: #8a95b0;
-  --rule: #253049; --accent: #a5b4fc; --accent-soft: #1e2547; --constraint: #fb923c;
+  --rule: #253049; --accent: #8fb3e3; --accent-soft: #15233d; --constraint: #fb923c;
   --good: #4ade80; --warn: #fbbf24; --bad: #f87171;
-  --ground: #141b2d; --bldg: #2a3550; --bldg-on: #8b83f0; --road: #222c44; --road-edge: #2f3a56;
+  --ground: #141b2d; --bldg: #2a3550; --bldg-on: #6b96cf; --road: #222c44; --road-edge: #2f3a56;
   --sun-s: #fbbf24; --sun-e: #2dd4bf; --sun-w: #60a5fa; color-scheme: dark; } }
 :root[data-theme="dark"] {
   --paper: #0d1220; --paper-2: #141b2d; --card: #121929; --ink: #e8ecf6; --ink-2: #b4bdd3; --muted: #8a95b0;
-  --rule: #253049; --accent: #a5b4fc; --accent-soft: #1e2547; --constraint: #fb923c;
+  --rule: #253049; --accent: #8fb3e3; --accent-soft: #15233d; --constraint: #fb923c;
   --good: #4ade80; --warn: #fbbf24; --bad: #f87171;
-  --ground: #141b2d; --bldg: #2a3550; --bldg-on: #8b83f0; --road: #222c44; --road-edge: #2f3a56;
+  --ground: #141b2d; --bldg: #2a3550; --bldg-on: #6b96cf; --road: #222c44; --road-edge: #2f3a56;
   --sun-s: #fbbf24; --sun-e: #2dd4bf; --sun-w: #60a5fa; color-scheme: dark; }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; scroll-padding-top: 64px; }

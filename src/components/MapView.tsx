@@ -57,7 +57,6 @@ export function MapView(props: Props) {
   const cursor = useRef<number[] | null>(null);
   const marker = useRef<maplibregl.Marker | null>(null);
   const pendingMarker = useRef<maplibregl.Marker | null>(null);
-  const anim = useRef<number>(0);
 
   // ---------- init ----------
   useEffect(() => {
@@ -135,7 +134,7 @@ export function MapView(props: Props) {
       m.addLayer({ id: 'selection-fill', type: 'fill', source: 'selection', filter: polyOnly, paint: { 'fill-color': SEL, 'fill-opacity': 0.16 } });
       m.addLayer({ id: 'selection-glow', type: 'line', source: 'selection', paint: { 'line-color': SEL, 'line-width': 12, 'line-blur': 8, 'line-opacity': 0.45 } });
       m.addLayer({ id: 'selection-casing', type: 'line', source: 'selection', paint: { 'line-color': '#ffffff', 'line-width': 5 } });
-      m.addLayer({ id: 'selection-line', type: 'line', source: 'selection', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': SEL, 'line-width': 3, 'line-dasharray': DASH[0] } });
+      m.addLayer({ id: 'selection-line', type: 'line', source: 'selection', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': SEL, 'line-width': 3 } });
       m.addSource('highlight', { type: 'geojson', data: EMPTY });
       m.addLayer({ id: 'highlight-line', type: 'line', source: 'highlight', paint: { 'line-color': '#ffd43b', 'line-width': 4 } });
       m.addLayer({ id: 'highlight-pt', type: 'circle', source: 'highlight', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-color': '#ffd43b', 'circle-radius': 12, 'circle-opacity': 0.5, 'circle-stroke-color': '#ffd43b', 'circle-stroke-width': 2 } });
@@ -387,7 +386,6 @@ export function MapView(props: Props) {
     } else {
       setData('selection', g ? { type: 'Feature', geometry: g, properties: {} } : EMPTY);
     }
-    animateSelection(!!g && (g.type === 'Polygon' || g.type === 'MultiPolygon'));
   }
 
   function syncPlots() {
@@ -410,22 +408,6 @@ export function MapView(props: Props) {
     pendingMarker.current = new maplibregl.Marker({ element: div }).setLngLat(p).addTo(map.current!);
   }
 
-  /** "Marching ants" on the selected plot outline. */
-  function animateSelection(on: boolean) {
-    cancelAnimationFrame(anim.current);
-    if (!on) return;
-    let step = 0, last = 0;
-    const tick = (t: number) => {
-      if (t - last > 70) {
-        last = t;
-        step = (step + 1) % DASH.length;
-        if (map.current?.getLayer('selection-line')) map.current.setPaintProperty('selection-line', 'line-dasharray', DASH[step]);
-      }
-      anim.current = requestAnimationFrame(tick);
-    };
-    anim.current = requestAnimationFrame(tick);
-  }
-
   function syncHighlight() {
     setData('highlight', P.current.highlight ?? EMPTY);
   }
@@ -434,7 +416,6 @@ export function MapView(props: Props) {
   useEffect(() => { if (loaded.current) { syncBasemap(); syncPlots(); } }, [props.basemap]);
   useEffect(() => { if (loaded.current) syncPlots(); }, [props.showPlots]);
   useEffect(() => { if (loaded.current) syncPending(); }, [props.pending?.join(',')]);
-  useEffect(() => () => cancelAnimationFrame(anim.current), []);
   useEffect(() => { if (loaded.current) syncLayers(); }, [props.enabled.join(','), props.opacity]);
   useEffect(() => { if (loaded.current) syncSites(); }, [props.sites, props.selectedSiteId]);
   useEffect(() => { if (loaded.current) syncSelection(); }, [props.selection]);
@@ -459,12 +440,7 @@ export function MapView(props: Props) {
   return <div ref={el} className="map" />;
 }
 
-const SEL = '#4f46e5';
-// dash patterns that shift along the line, giving a "marching ants" effect
-const DASH: number[][] = [
-  [0, 4, 3], [0.5, 4, 2.5], [1, 4, 2], [1.5, 4, 1.5], [2, 4, 1], [2.5, 4, 0.5], [3, 4, 0],
-  [0, 0.5, 3, 3.5], [0, 1, 3, 3], [0, 1.5, 3, 2.5], [0, 2, 3, 2], [0, 2.5, 3, 1.5], [0, 3, 3, 1], [0, 3.5, 3, 0.5],
-];
+const SEL = '#1b3a6b';
 
 function contains(outer: number[], inner: number[]) {
   return outer[0] <= inner[0] && outer[1] <= inner[1] && outer[2] >= inner[2] && outer[3] >= inner[3];
